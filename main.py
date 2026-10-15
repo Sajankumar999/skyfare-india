@@ -24,6 +24,7 @@ from database import (
     BASE_CORRIDOR_TARIFFS,
     get_db_connection,
     get_postgres_connection,
+    get_canonical_supabase_url,
     is_postgres_configured,
     is_supabase_configured,
 )
@@ -602,7 +603,7 @@ def persist_daily_index(index: dict[str, Any]) -> None:
 
 def _sync_daily_index_rest(index: dict[str, Any]) -> bool:
     """Fallback REST API sync for daily indices."""
-    url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    url = get_canonical_supabase_url()
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     key = service_key or os.getenv("SUPABASE_ANON_KEY", "").strip()
     if not url or not key:

@@ -1,4 +1,6 @@
+import base64
 import gc
+import json
 import math
 import os
 import shutil
@@ -6,13 +8,58 @@ import sqlite3
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-
-
 from urllib.parse import urlsplit, urlunsplit
 
 
 DATABASE_PATH = Path(__file__).resolve().parent / "skyfare_live.db"
 SUPPORTED_HORIZONS = ("T+1", "T+7", "T+15", "T+30", "T+45")
+
+
+def extract_supabase_project_ref() -> str:
+    """Extracts the true Supabase project reference from JWT keys or database URLs."""
+    for env_var in ("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"):
+        val = os.getenv(env_var, "").strip()
+        if val and "." in val:
+            try:
+                parts = val.split(".")
+                if len(parts) >= 2:
+                    b64 = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
+                    data = json.loads(base64.urlsafe_b64decode(b64))
+                    ref = str(data.get("ref", "")).strip()
+                    if ref:
+                        return ref
+            except Exception:
+                pass
+
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    if supabase_url and "supabase.co" in supabase_url and "pooler" not in supabase_url:
+        try:
+            full_url = supabase_url if "://" in supabase_url else f"https://{supabase_url}"
+            netloc = urlsplit(full_url).netloc
+            ref = netloc.split(".")[0].strip()
+            if ref and "pooler" not in ref:
+                return ref
+        except Exception:
+            pass
+
+    return "lrgskbmrgtmcybqabrze"
+
+
+def get_canonical_supabase_url() -> str:
+    """Returns canonical HTTPS REST endpoint for Supabase (https://<project-ref>.supabase.co).
+    
+    If SUPABASE_URL was erroneously set to a database pooler hostname
+    (e.g., aws-0-ap-south-1.pooler.supabase.com), this automatically converts it
+    to the correct PostgREST HTTP endpoint.
+    """
+    raw_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    if raw_url and ".supabase.co" in raw_url and "pooler" not in raw_url:
+        if not raw_url.startswith("http://") and not raw_url.startswith("https://"):
+            raw_url = f"https://{raw_url}"
+        return raw_url
+
+    ref = extract_supabase_project_ref()
+    return f"https://{ref}.supabase.co"
 
 
 def get_normalized_database_url() -> str | None:
@@ -23,10 +70,7 @@ def get_normalized_database_url() -> str | None:
     try:
         parts = urlsplit(raw_url)
         if "pooler.supabase.com" in parts.netloc:
-            supabase_url = os.getenv("SUPABASE_URL", "").strip()
-            project_ref = ""
-            if "supabase.co" in supabase_url:
-                project_ref = urlsplit(supabase_url).netloc.split(".")[0]
+            project_ref = extract_supabase_project_ref()
             if project_ref and parts.username == "postgres":
                 netloc = parts.netloc.replace("postgres:", f"postgres.{project_ref}:", 1)
                 return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
@@ -73,7 +117,7 @@ def get_postgres_connection():
 
 def sync_to_supabase_rest(rows: list[tuple], table: str = "fare_observations") -> bool:
     """Fallback REST API sync when PostgreSQL direct connection is unavailable."""
-    url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    url = get_canonical_supabase_url()
     service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
     key = service_key or os.getenv("SUPABASE_ANON_KEY", "").strip()
     if not url:
