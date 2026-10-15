@@ -18,17 +18,63 @@ def is_postgres_configured() -> bool:
     return bool(url and (url.startswith("postgres://") or url.startswith("postgresql://")))
 
 
+_pg_connection_disabled = False
+
+
 def get_postgres_connection():
     """Returns a direct PostgreSQL connection to Supabase if configured."""
-    if not is_postgres_configured():
+    global _pg_connection_disabled
+    if _pg_connection_disabled or not is_postgres_configured():
         return None
     try:
         import psycopg2
         url = os.getenv("DATABASE_URL")
         return psycopg2.connect(url, sslmode="require")
     except Exception as exc:
-        print(f"  [SUPABASE PG NOTICE] PostgreSQL driver unavailable: {exc}")
+        err_msg = str(exc)
+        if "authentication failed" in err_msg.lower() or "circuitbreaker" in err_msg.lower():
+            _pg_connection_disabled = True
+            print(f"  [SUPABASE PG NOTICE] Auth failure or circuit breaker tripped: {exc}")
+            print("  [SUPABASE PG NOTICE] Pausing direct PG attempts for this session to prevent pooler lockouts.")
+        else:
+            print(f"  [SUPABASE PG NOTICE] PostgreSQL driver unavailable: {exc}")
         return None
+
+
+def sync_to_supabase_rest(rows: list[tuple], table: str = "fare_observations") -> bool:
+    """Fallback REST API sync when PostgreSQL direct connection is unavailable."""
+    url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip() or os.getenv("SUPABASE_ANON_KEY", "").strip()
+    if not url or not key or not rows:
+        return False
+    try:
+        import requests
+        payload = [
+            {
+                "airline": str(r[0]),
+                "route_code": str(r[1]),
+                "booking_horizon": str(r[2]),
+                "base_fare": float(r[3]),
+                "total_fare": float(r[4]),
+                "corridor_baseline_30d": float(r[5]) if r[5] is not None else None,
+                "source_platform": str(r[6]) if len(r) > 6 else "google_flights",
+            }
+            for r in rows
+        ]
+        resp = requests.post(
+            f"{url}/rest/v1/{table}",
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=ignore-duplicates",
+            },
+            json=payload,
+            timeout=10,
+        )
+        return resp.status_code in (200, 201)
+    except Exception:
+        return False
 
 
 def get_db_connection(

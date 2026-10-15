@@ -13,6 +13,7 @@ from database import (
     get_db_connection,
     get_postgres_connection,
     is_postgres_configured,
+    sync_to_supabase_rest,
 )
 SUPPORTED_HORIZONS = ("T+1", "T+7", "T+15", "T+30", "T+45")
 
@@ -254,8 +255,11 @@ def persist_quotes(
                             )
                         pg_conn.commit()
                         pg_conn.close()
+                    else:
+                        sync_to_supabase_rest(insert_rows)
                 except Exception as pg_err:
                     print(f"  [SUPABASE PG SYNC NOTICE]: {pg_err}")
+                    sync_to_supabase_rest(insert_rows)
         else:
             connection.commit()
     finally:

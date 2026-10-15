@@ -592,8 +592,49 @@ def persist_daily_index(index: dict[str, Any]) -> None:
                     )
                 pg_conn.commit()
                 pg_conn.close()
+            else:
+                _sync_daily_index_rest(index)
         except Exception as pg_err:
             print(f"  [SUPABASE PG SYNC NOTICE]: {pg_err}")
+            _sync_daily_index_rest(index)
+
+
+def _sync_daily_index_rest(index: dict[str, Any]) -> bool:
+    """Fallback REST API sync for daily indices."""
+    url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip() or os.getenv("SUPABASE_ANON_KEY", "").strip()
+    if not url or not key:
+        return False
+    try:
+        import requests
+        payload = {
+            "index_date": index["index_date"],
+            "laspeyres_index": float(index["laspeyres_index"]),
+            "paasche_index": float(index["paasche_index"]),
+            "fisher_ideal_index": float(index["fisher_ideal_index"]),
+            "jevons_index": float(index["jevons_index"]) if index.get("jevons_index") is not None else None,
+            "tornqvist_index": float(index["tornqvist_index"]) if index.get("tornqvist_index") is not None else None,
+            "dod_change_pct": float(index["dod_change_pct"]),
+            "average_live_fare": float(index["average_live_fare"]),
+            "observations": int(index["observations"]),
+            "routes": int(index["routes"]),
+            "methodology": str(index["methodology"]),
+            "calculated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        resp = requests.post(
+            f"{url}/rest/v1/daily_indices",
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=merge-duplicates",
+            },
+            json=payload,
+            timeout=10,
+        )
+        return resp.status_code in (200, 201)
+    except Exception:
+        return False
 
 
 def sync_today_index() -> None:
