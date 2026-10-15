@@ -51,4 +51,6 @@ logs/
 # Exported CSVs and diagnostic crops
 supabase_*.csv
 crop_*.png
+verify_supabase_sync.py
+
 
