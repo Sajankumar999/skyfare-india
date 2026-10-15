@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+env/
+ENV/
+
+# Production build outputs
+dist/
+build/
+coverage/
+
+# Environment and sensitive keys
+.env*
+!.env.example
+api_keys_registry.json
+*.pem
+*.key
+
+# Local SQLite databases & backups (Production uses cloud Supabase PostgreSQL)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+skyfare_live.db
+skyfare_scrapling.db
+backups/
+
+# Operating system & runtime locks
+.DS_Store
+Thumbs.db
+.ingestion.lock
+*.lock
+
+# Python cache & testing artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Logs
+logs/
+*.log
+
+# Graft local knowledge graph cache (regenerable via `graft build`)
+/graft/

@@ -1,0 +1,77 @@
+/* ==========================================================================
+   SkyFare India — Dark Mode Theme (From User Theme Palette #2)
+   Applies strictly when dark mode IS active (html.dark / .dark)
+   ========================================================================== */
+
+html.dark,
+html.dark body,
+body.dark {
+  background-color: #070d1e !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark {
+  --color-canvas-bg: #070d1e;
+  --color-surface-card: #0d1830;
+  --color-surface-dim: #050914;
+  --color-surface-elevated: #132242;
+  --color-text-main: #F8FAFC;
+  --color-text-muted: #94a3b8;
+  --color-border-hairline: rgba(59, 130, 246, 0.16);
+  --color-border-prominent: rgba(59, 130, 246, 0.28);
+  --color-brand-blue: #3B82F6;
+  --color-brand-saffron: #F59E0B;
+  --color-brand-green: #10B981;
+  --color-brand-red: #F43F5E;
+}
+
+/* Scoped Dark Mode Overrides — ONLY active when .dark is present */
+.dark .bg-slate-950,
+.dark .bg-slate-900 {
+  background-color: #0d1830 !important;
+}
+
+.dark .bg-slate-900\/95,
+.dark .bg-slate-900\/80,
+.dark .bg-slate-900\/70 {
+  background-color: rgba(13, 24, 48, 0.95) !important;
+}
+
+.dark .bg-slate-800,
+.dark .bg-slate-800\/80,
+.dark .bg-slate-800\/90 {
+  background-color: #132242 !important;
+}
+
+.dark .border-slate-800,
+.dark .border-slate-800\/80,
+.dark .border-slate-800\/50,
+.dark .border-slate-800\/40,
+.dark .border-slate-700 {
+  border-color: rgba(59, 130, 246, 0.16) !important;
+}
+
+.dark .text-slate-100,
+.dark .text-slate-200 {
+  color: #F8FAFC !important;
+}
+
+.dark .text-slate-400,
+.dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.dark .custom-scroll::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+.dark .custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.25);
+  border-radius: 2px;
+}
+
+.dark ::selection {
+  background-color: #3B82F6;
+  color: #ffffff;
+}

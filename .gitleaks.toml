@@ -1,0 +1,14 @@
+[allowlist]
+description = "Ignore build artifacts, virtual environments, and caches"
+paths = [
+    '''^\.venv/''',
+    '''^node_modules/''',
+    '''^dist/''',
+    '''^build/''',
+    '''^backups/''',
+    '''^graft/''',
+    '''^logs/''',
+    '''^\.git/''',
+    '''\.db$''',
+    '''\.pyc$'''
+]

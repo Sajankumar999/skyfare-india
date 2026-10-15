@@ -1,0 +1,41 @@
+/* ==========================================================================
+   SkyFare India — Light Mode Theme (From User Theme Palette #1)
+   Applies strictly when dark mode is NOT active (html:not(.dark))
+   ========================================================================== */
+
+:root:not(.dark),
+html:not(.dark) body {
+  background-color: #f8f9fa;
+  color: #0f172a;
+}
+
+html:not(.dark) {
+  --color-canvas-bg: #f8f9fa;
+  --color-surface-card: #ffffff;
+  --color-surface-dim: #f1f5f9;
+  --color-surface-low: #f8fafc;
+  --color-text-main: #0f172a;
+  --color-text-muted: #475569;
+  --color-border-hairline: #e2e8f0;
+  --color-border-prominent: #cbd5e1;
+  --color-brand-blue: #1e40af;
+  --color-brand-saffron: #d97706;
+  --color-brand-green: #047857;
+  --color-brand-red: #b91c1c;
+}
+
+/* Light mode specific subtle improvements */
+html:not(.dark) .custom-scroll::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+
+html:not(.dark) .custom-scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+html:not(.dark) ::selection {
+  background-color: #1e40af;
+  color: #ffffff;
+}

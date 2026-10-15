@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pydantic
+requests
+python-dotenv
+scrapling
+curl_cffi
+psycopg2-binary
+supabase
