@@ -55,7 +55,12 @@ def migrate_to_supabase(database_url: str) -> None:
         pg_conn = psycopg2.connect(database_url, sslmode="require")
         pg_conn.autocommit = False
     except Exception as exc:
-        print(f"[CONNECTION ERROR] Could not connect to Supabase PostgreSQL:\n{exc}")
+        print(f"\n[CONNECTION ERROR] Could not connect to Supabase PostgreSQL:\n{exc}")
+        print("\nTroubleshooting Tips:")
+        print("1. If using direct URI (db.[project-id].supabase.co), check that the 3rd letter is 'g' (lrgskbmrgtmcybqabrze).")
+        print("2. Some local ISPs only support IPv4. Try the Connection Pooler URI from your Supabase Dashboard:")
+        print("   Click the green 'Connect' button at the top of your Supabase dashboard -> Select 'URI' -> Mode: Transaction")
+        print("   Example: postgresql://postgres.lrgskbmrgtmcybqabrze:[PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres")
         sys.exit(1)
 
     pg_cur = pg_conn.cursor()
