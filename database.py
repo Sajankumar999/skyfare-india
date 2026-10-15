@@ -8,8 +8,31 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 
+from urllib.parse import urlsplit, urlunsplit
+
+
 DATABASE_PATH = Path(__file__).resolve().parent / "skyfare_live.db"
 SUPPORTED_HORIZONS = ("T+1", "T+7", "T+15", "T+30", "T+45")
+
+
+def get_normalized_database_url() -> str | None:
+    """Normalizes PostgreSQL connection string, ensuring pooler tenant isolation prefix."""
+    raw_url = os.getenv("DATABASE_URL", "").strip()
+    if not raw_url:
+        return None
+    try:
+        parts = urlsplit(raw_url)
+        if "pooler.supabase.com" in parts.netloc:
+            supabase_url = os.getenv("SUPABASE_URL", "").strip()
+            project_ref = ""
+            if "supabase.co" in supabase_url:
+                project_ref = urlsplit(supabase_url).netloc.split(".")[0]
+            if project_ref and parts.username == "postgres":
+                netloc = parts.netloc.replace("postgres:", f"postgres.{project_ref}:", 1)
+                return urlunsplit((parts.scheme, netloc, parts.path, parts.query, parts.fragment))
+    except Exception:
+        pass
+    return raw_url
 
 
 def is_postgres_configured() -> bool:
@@ -35,7 +58,7 @@ def get_postgres_connection():
         return None
     try:
         import psycopg2
-        url = os.getenv("DATABASE_URL")
+        url = get_normalized_database_url() or os.getenv("DATABASE_URL")
         return psycopg2.connect(url, sslmode="require")
     except Exception as exc:
         err_msg = str(exc)
@@ -51,8 +74,14 @@ def get_postgres_connection():
 def sync_to_supabase_rest(rows: list[tuple], table: str = "fare_observations") -> bool:
     """Fallback REST API sync when PostgreSQL direct connection is unavailable."""
     url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip() or os.getenv("SUPABASE_ANON_KEY", "").strip()
-    if not url or not key or not rows:
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    key = service_key or os.getenv("SUPABASE_ANON_KEY", "").strip()
+    if not url:
+        return False
+    if not key:
+        print("  [SUPABASE REST NOTICE] No SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY configured.")
+        return False
+    if not rows:
         return False
     try:
         import requests
@@ -74,13 +103,20 @@ def sync_to_supabase_rest(rows: list[tuple], table: str = "fare_observations") -
                 "apikey": key,
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
-                "Prefer": "resolution=ignore-duplicates",
+                "Prefer": "return=minimal",
             },
             json=payload,
-            timeout=10,
+            timeout=15,
         )
-        return resp.status_code in (200, 201)
-    except Exception:
+        if resp.status_code in (200, 201):
+            auth_role = "service_role" if service_key else "anon"
+            print(f"  [SUPABASE CLOUD REST] Synced {len(payload)} quotes to {table} (HTTP {resp.status_code}, {auth_role})")
+            return True
+        else:
+            print(f"  [SUPABASE CLOUD REST ERROR] HTTP {resp.status_code} on {table}: {resp.text[:150]}")
+            return False
+    except Exception as exc:
+        print(f"  [SUPABASE CLOUD REST EXCEPTION] {exc}")
         return False
 
 

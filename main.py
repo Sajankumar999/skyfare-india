@@ -603,7 +603,8 @@ def persist_daily_index(index: dict[str, Any]) -> None:
 def _sync_daily_index_rest(index: dict[str, Any]) -> bool:
     """Fallback REST API sync for daily indices."""
     url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
-    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip() or os.getenv("SUPABASE_ANON_KEY", "").strip()
+    service_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip()
+    key = service_key or os.getenv("SUPABASE_ANON_KEY", "").strip()
     if not url or not key:
         return False
     try:
@@ -623,18 +624,25 @@ def _sync_daily_index_rest(index: dict[str, Any]) -> bool:
             "calculated_at": datetime.now(timezone.utc).isoformat(),
         }
         resp = requests.post(
-            f"{url}/rest/v1/daily_indices",
+            f"{url}/rest/v1/daily_indices?on_conflict=index_date",
             headers={
                 "apikey": key,
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
-                "Prefer": "resolution=merge-duplicates",
+                "Prefer": "resolution=merge-duplicates,return=minimal",
             },
             json=payload,
-            timeout=10,
+            timeout=15,
         )
-        return resp.status_code in (200, 201)
-    except Exception:
+        if resp.status_code in (200, 201):
+            auth_role = "service_role" if service_key else "anon"
+            print(f"  [SUPABASE CLOUD REST] Daily index for {index['index_date']} upserted (HTTP {resp.status_code}, {auth_role})")
+            return True
+        else:
+            print(f"  [SUPABASE CLOUD REST ERROR] HTTP {resp.status_code} on daily_indices: {resp.text[:150]}")
+            return False
+    except Exception as exc:
+        print(f"  [SUPABASE CLOUD REST EXCEPTION] {exc}")
         return False
 
 
