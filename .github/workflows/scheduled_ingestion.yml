@@ -42,6 +42,7 @@ jobs:
           # Cloud Database (Supabase PostgreSQL) or local fallback
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           # Scrapling Multi-Source Engine & SerpApi fallback
           SERPAPI_API_KEY: ${{ secrets.SERPAPI_API_KEY }}
