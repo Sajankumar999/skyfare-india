@@ -23,6 +23,8 @@ from database import (
     get_corridor_baseline,
     BASE_CORRIDOR_TARIFFS,
     get_db_connection,
+    get_postgres_connection,
+    is_postgres_configured,
 )
 from index_engine import (
     calculate_fisher_ideal_index,
@@ -546,6 +548,52 @@ def persist_daily_index(index: dict[str, Any]) -> None:
             ),
         )
         connection.commit()
+
+    # Dual-sync to Supabase PostgreSQL when configured
+    if is_postgres_configured():
+        try:
+            pg_conn = get_postgres_connection()
+            if pg_conn:
+                with pg_conn.cursor() as pg_cur:
+                    pg_cur.execute(
+                        """
+                        INSERT INTO public.daily_indices (
+                            index_date, laspeyres_index, paasche_index, fisher_ideal_index,
+                            jevons_index, tornqvist_index, dod_change_pct, average_live_fare,
+                            observations, routes, methodology, calculated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (index_date) DO UPDATE SET
+                            laspeyres_index = EXCLUDED.laspeyres_index,
+                            paasche_index = EXCLUDED.paasche_index,
+                            fisher_ideal_index = EXCLUDED.fisher_ideal_index,
+                            jevons_index = EXCLUDED.jevons_index,
+                            tornqvist_index = EXCLUDED.tornqvist_index,
+                            dod_change_pct = EXCLUDED.dod_change_pct,
+                            average_live_fare = EXCLUDED.average_live_fare,
+                            observations = EXCLUDED.observations,
+                            routes = EXCLUDED.routes,
+                            methodology = EXCLUDED.methodology,
+                            calculated_at = EXCLUDED.calculated_at;
+                        """,
+                        (
+                            index["index_date"],
+                            index["laspeyres_index"],
+                            index["paasche_index"],
+                            index["fisher_ideal_index"],
+                            index.get("jevons_index"),
+                            index.get("tornqvist_index"),
+                            index["dod_change_pct"],
+                            index["average_live_fare"],
+                            index["observations"],
+                            index["routes"],
+                            index["methodology"],
+                            datetime.now(timezone.utc).isoformat(),
+                        ),
+                    )
+                pg_conn.commit()
+                pg_conn.close()
+        except Exception as pg_err:
+            print(f"  [SUPABASE PG SYNC NOTICE]: {pg_err}")
 
 
 def sync_today_index() -> None:

@@ -11,6 +11,8 @@ from database import (
     DATABASE_PATH,
     get_corridor_baseline,
     get_db_connection,
+    get_postgres_connection,
+    is_postgres_configured,
 )
 SUPPORTED_HORIZONS = ("T+1", "T+7", "T+15", "T+30", "T+45")
 
@@ -231,7 +233,31 @@ def persist_quotes(
                 """,
                 insert_rows,
             )
-        connection.commit()
+            connection.commit()
+
+            # Dual-sync to Supabase PostgreSQL when configured
+            if is_postgres_configured() and (not db_path or Path(db_path) == DATABASE_PATH):
+                try:
+                    pg_conn = get_postgres_connection()
+                    if pg_conn:
+                        with pg_conn.cursor() as pg_cur:
+                            from psycopg2.extras import execute_values
+                            execute_values(
+                                pg_cur,
+                                """
+                                INSERT INTO public.fare_observations (
+                                    airline, route_code, booking_horizon, base_fare, total_fare,
+                                    corridor_baseline_30d, source_platform
+                                ) VALUES %s;
+                                """,
+                                insert_rows,
+                            )
+                        pg_conn.commit()
+                        pg_conn.close()
+                except Exception as pg_err:
+                    print(f"  [SUPABASE PG SYNC NOTICE]: {pg_err}")
+        else:
+            connection.commit()
     finally:
         connection.close()
 
