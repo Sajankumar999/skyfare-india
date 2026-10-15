@@ -25,6 +25,7 @@ from database import (
     get_db_connection,
     get_postgres_connection,
     is_postgres_configured,
+    is_supabase_configured,
 )
 from index_engine import (
     calculate_fisher_ideal_index,
@@ -549,8 +550,8 @@ def persist_daily_index(index: dict[str, Any]) -> None:
         )
         connection.commit()
 
-    # Dual-sync to Supabase PostgreSQL when configured
-    if is_postgres_configured():
+    # Dual-sync to Supabase (PostgreSQL or HTTPS REST API)
+    if is_supabase_configured() or is_postgres_configured():
         try:
             pg_conn = get_postgres_connection()
             if pg_conn:

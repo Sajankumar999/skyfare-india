@@ -18,6 +18,13 @@ def is_postgres_configured() -> bool:
     return bool(url and (url.startswith("postgres://") or url.startswith("postgresql://")))
 
 
+def is_supabase_configured() -> bool:
+    """Checks whether either PostgreSQL or Supabase REST credentials are present."""
+    return is_postgres_configured() or bool(
+        os.getenv("SUPABASE_URL") and (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY"))
+    )
+
+
 _pg_connection_disabled = False
 
 

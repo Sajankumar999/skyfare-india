@@ -13,6 +13,7 @@ from database import (
     get_db_connection,
     get_postgres_connection,
     is_postgres_configured,
+    is_supabase_configured,
     sync_to_supabase_rest,
 )
 SUPPORTED_HORIZONS = ("T+1", "T+7", "T+15", "T+30", "T+45")
@@ -236,8 +237,8 @@ def persist_quotes(
             )
             connection.commit()
 
-            # Dual-sync to Supabase PostgreSQL when configured
-            if is_postgres_configured() and (not db_path or Path(db_path) == DATABASE_PATH):
+            # Dual-sync to Supabase (PostgreSQL or HTTPS REST API)
+            if (is_supabase_configured() or is_postgres_configured()) and (not db_path or Path(db_path) == DATABASE_PATH):
                 try:
                     pg_conn = get_postgres_connection()
                     if pg_conn:
