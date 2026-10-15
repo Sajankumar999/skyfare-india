@@ -200,21 +200,118 @@ def migrate_to_supabase(database_url: str) -> None:
         pg_conn.close()
 
 
+import csv
+
+
+def export_to_csv() -> None:
+    if not LOCAL_DB_PATH.exists():
+        print(f"[ERROR] Local SQLite database not found at {LOCAL_DB_PATH}")
+        sys.exit(1)
+
+    sqlite_conn = sqlite3.connect(LOCAL_DB_PATH)
+    sqlite_conn.row_factory = sqlite3.Row
+
+    # 1. Export fare_observations
+    obs_path = Path("supabase_fare_observations.csv")
+    print(f"\n[1/3] Exporting fare_observations to {obs_path}...")
+    cursor = sqlite_conn.execute(
+        """
+        SELECT airline, route_code, booking_horizon, base_fare, total_fare,
+               corridor_baseline_30d, COALESCE(source_platform, 'google_flights') as source_platform,
+               observed_at
+        FROM fare_observations
+        ORDER BY id
+        """
+    )
+    with open(obs_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "airline", "route_code", "booking_horizon", "base_fare", "total_fare",
+            "corridor_baseline_30d", "source_platform", "observed_at"
+        ])
+        count = 0
+        while True:
+            rows = cursor.fetchmany(5000)
+            if not rows:
+                break
+            for r in rows:
+                writer.writerow([
+                    r["airline"], r["route_code"], r["booking_horizon"],
+                    r["base_fare"], r["total_fare"], r["corridor_baseline_30d"],
+                    r["source_platform"], r["observed_at"]
+                ])
+                count += 1
+    print(f"  [OK] Exported {count:,} observations to {obs_path}!")
+
+    # 2. Export daily_indices
+    idx_path = Path("supabase_daily_indices.csv")
+    print(f"\n[2/3] Exporting daily_indices to {idx_path}...")
+    idx_rows = sqlite_conn.execute("SELECT * FROM daily_indices ORDER BY index_date").fetchall()
+    with open(idx_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "index_date", "laspeyres_index", "paasche_index", "fisher_ideal_index",
+            "jevons_index", "tornqvist_index", "dod_change_pct", "average_live_fare",
+            "observations", "routes", "methodology", "calculated_at"
+        ])
+        for r in idx_rows:
+            writer.writerow([
+                r["index_date"], r["laspeyres_index"], r["paasche_index"], r["fisher_ideal_index"],
+                r["jevons_index"] if "jevons_index" in r.keys() else None,
+                r["tornqvist_index"] if "tornqvist_index" in r.keys() else None,
+                r["dod_change_pct"], r["average_live_fare"],
+                r["observations"], r["routes"], r["methodology"], r["calculated_at"]
+            ])
+    print(f"  [OK] Exported {len(idx_rows)} daily indices to {idx_path}!")
+
+    # 3. Export route_weights
+    rw_path = Path("supabase_route_weights.csv")
+    print(f"\n[3/3] Exporting route_weights to {rw_path}...")
+    rw_rows = sqlite_conn.execute("SELECT * FROM route_weights").fetchall()
+    with open(rw_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["route_code", "base_quantity", "current_quantity", "data_source", "effective_date"])
+        for r in rw_rows:
+            source = r["source_name"] if "source_name" in r.keys() else (r["data_source"] if "data_source" in r.keys() else "DGCA")
+            effective = r["effective_from"] if "effective_from" in r.keys() else (r["effective_date"] if "effective_date" in r.keys() else "2026-01-01")
+            writer.writerow([
+                r["route_code"], r["base_quantity"], r["current_quantity"], source, effective
+            ])
+    print(f"  [OK] Exported {len(rw_rows)} route weights to {rw_path}!")
+    sqlite_conn.close()
+    print("\n" + "=" * 70)
+    print("[EXPORT SUCCESS] 3 CSV files created for instant 1-click import:")
+    print("  1. supabase_fare_observations.csv")
+    print("  2. supabase_daily_indices.csv")
+    print("  3. supabase_route_weights.csv")
+    print("You can drag & drop these CSVs directly into your Supabase Table Editor!")
+    print("=" * 70)
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Upload local SQLite data to Supabase PostgreSQL")
+    parser = argparse.ArgumentParser(description="Upload local SQLite data to Supabase PostgreSQL or export to CSV")
     parser.add_argument(
         "--url",
         type=str,
         default=None,
         help="Supabase PostgreSQL connection string (defaults to DATABASE_URL in .env)",
     )
+    parser.add_argument(
+        "--export-csv",
+        action="store_true",
+        help="Export all SQLite tables to Supabase-ready CSV files for 1-click drag-and-drop import",
+    )
     args = parser.parse_args()
+
+    if args.export_csv:
+        export_to_csv()
+        sys.exit(0)
 
     db_url = args.url or os.getenv("DATABASE_URL")
     if not db_url:
         print("[ERROR] Please provide your Supabase connection string:")
         print("  python migrate_sqlite_to_supabase.py --url \"postgresql://postgres:PASSWORD@db.PROJECT_ID.supabase.co:5432/postgres\"")
-        print("  or set DATABASE_URL in .env")
+        print("  or use: python migrate_sqlite_to_supabase.py --export-csv")
         sys.exit(1)
 
     migrate_to_supabase(db_url)

@@ -47,3 +47,8 @@ logs/
 
 # Graft local knowledge graph cache (regenerable via `graft build`)
 /graft/
+
+# Exported CSVs and diagnostic crops
+supabase_*.csv
+crop_*.png
+
