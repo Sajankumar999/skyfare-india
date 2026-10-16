@@ -164,6 +164,65 @@ def sync_to_supabase_rest(rows: list[tuple], table: str = "fare_observations") -
         return False
 
 
+def pull_from_supabase_if_empty(connection: sqlite3.Connection, limit: int = 5000) -> int:
+    """If the local SQLite fare_observations table has 0 rows, populate it from Supabase."""
+    try:
+        count = connection.execute("SELECT COUNT(*) FROM fare_observations").fetchone()[0]
+        if count > 0:
+            return 0
+    except Exception:
+        return 0
+
+    url = get_canonical_supabase_url()
+    key = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "").strip() or os.getenv("SUPABASE_ANON_KEY", "").strip()
+    if not url or not key:
+        return 0
+
+    try:
+        import requests
+        resp = requests.get(
+            f"{url}/rest/v1/fare_observations?select=airline,route_code,booking_horizon,base_fare,total_fare,corridor_baseline_30d,observed_at,source_platform&order=id.desc&limit={limit}",
+            headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+            },
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, list) and data:
+                rows = [
+                    (
+                        item.get("airline"),
+                        item.get("route_code"),
+                        item.get("booking_horizon"),
+                        float(item["base_fare"]) if item.get("base_fare") is not None else 0.0,
+                        float(item["total_fare"]) if item.get("total_fare") is not None else 0.0,
+                        float(item["corridor_baseline_30d"]) if item.get("corridor_baseline_30d") is not None else None,
+                        item.get("observed_at") or datetime.now(timezone.utc).isoformat(),
+                        item.get("source_platform") or "google_flights",
+                    )
+                    for item in data
+                    if item.get("route_code") and item.get("total_fare")
+                ]
+                connection.executemany(
+                    """
+                    INSERT INTO fare_observations (
+                        airline, route_code, booking_horizon, base_fare, total_fare,
+                        corridor_baseline_30d, observed_at, source_platform
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    rows,
+                )
+                connection.commit()
+                print(f"  [SUPABASE SEED] Hydrated {len(rows)} live observations into local SQLite from Supabase cloud.")
+                return len(rows)
+    except Exception as exc:
+        print(f"  [SUPABASE SEED EXCEPTION] {exc}")
+    return 0
+
+
+
 def get_db_connection(
     db_path: Path | str | None = None,
     row_factory: bool = False,
@@ -470,6 +529,9 @@ def init_db() -> None:
 
         # Populate route weights & 35-day historical indices
         seed_initial_data(connection)
+
+        # Hydrate live empirical observations from Supabase cloud if table is empty
+        pull_from_supabase_if_empty(connection)
 
         # Backfill any null or zero corridor baselines to maintain statutory benchmark continuity
         for r_code, norm in BASE_CORRIDOR_TARIFFS.items():

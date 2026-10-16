@@ -11,3 +11,10 @@ services:
         value: 3.12.0
       - key: SKYFARE_CORS_ORIGINS
         value: https://skyfare-india.vercel.app,http://localhost:3000
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+
