@@ -2,21 +2,59 @@
 ## National Airfare Intelligence Platform & Sovereign Economic Surveillance Engine
 
 * **System Name**: SkyFare India Architecture & Flow Blueprint
-* **Architecture Pattern**: Decoupled Event-Driven Micro-Pipelines (Ingestion $\rightarrow$ ETL/Quarantine $\rightarrow$ Econometric Engine $\rightarrow$ REST API $\rightarrow$ Reactive Dashboard)
-* **Version**: `1.0.0`
-* **Last Updated**: `2026-09-24`
+* **Architecture Pattern**: 4-Tier Sovereign Cloud Mesh (GitHub Actions Ingestion $\rightarrow$ Supabase PostgreSQL Vault $\rightarrow$ Render FastAPI Microservice $\rightarrow$ Vercel React 19 Edge CDN)
+* **Version**: `2.0.0 (Production Live)`
+* **Last Updated**: `2026-10-16`
+* **Production Frontend**: `https://skyfare-india.vercel.app/`
+* **Production Backend API**: `https://skyfare-india-api.onrender.com`
+* **Sovereign Database**: Supabase PostgreSQL (`lrgskbmrgtmcybqabrze.supabase.co`) & SQLite WAL replica (`skyfare_live.db`)
 
 ---
 
-## 1. 🌐 High-Level System Architecture
+## 1. 🌐 High-Level System Architecture & 4-Tier Cloud Mesh
 
-SkyFare India is organized into five decoupled layers ensuring high availability, reproducible calculations, and tamper-proof audit trails:
+SkyFare India operates across a sovereign 4-tier decoupled cloud infrastructure ensuring 100% automated harvesting, cryptographic tamper resistance, zero-downtime serving, and sub-100ms global response times:
+
+```mermaid
+graph TD
+    subgraph TIER1 ["Tier 1: Sovereign Data Harvesting (GitHub Actions)"]
+        GHA["GitHub Actions Cron<br/>(3x Daily: 05:15, 10:15, 17:15 UTC)"]
+        SCRAP["Scrapling / SerpApi Ingestion Engine<br/>(14 DGCA Corridors × 5 Horizons)"]
+        TUK["Tukey IQR Outlier Engine<br/>[₹1,200 – ₹45,000 Bounds]"]
+        GHA --> SCRAP --> TUK
+    end
+
+    subgraph TIER2 ["Tier 2: Cloud Data Vault (Supabase PostgreSQL)"]
+        SUPA[("Supabase PostgreSQL Cloud Vault<br/>(42,945+ Verified Quotes)")]
+        SQLITE[("Local/Edge SQLite WAL Replica<br/>(skyfare_live.db, 5.7 MB)")]
+        TUK -->|Push Batch| SUPA
+        SUPA -.->|Auto-Hydrate / Sync| SQLITE
+    end
+
+    subgraph TIER3 ["Tier 3: Econometric Compute & API (Render FastAPI)"]
+        RENDER["Render Web Service<br/>(https://skyfare-india-api.onrender.com)"]
+        ENG["Econometric Engine (index_engine.py)<br/>Fisher Ideal (166.48) + Jevons + Törnqvist"]
+        CORS["CORS Gatekeeper (*.vercel.app + localhost)"]
+        SQLITE & SUPA --> RENDER
+        RENDER --> ENG --> CORS
+    end
+
+    subgraph TIER4 ["Tier 4: Global Edge Presentation (Vercel CDN)"]
+        VERCEL["Vercel Global Edge CDN<br/>(https://skyfare-india.vercel.app/)"]
+        REACT["React 19 + TypeScript + Tailwind CSS v4"]
+        VIEWS["1. MoSPI Command Center<br/>2. Citizen Fair-Fare Portal<br/>3. DGCA Rule 135 Watchdog<br/>4. AI Econometric Guide"]
+        CORS -->|JSON REST Streams| VERCEL
+        VERCEL --> REACT --> VIEWS
+    end
+```
+
+### 1.1 Microdata Pipeline Decomposition
 
 ```mermaid
 graph TD
     subgraph L1_INGESTION ["1. Data Acquisition & Ingestion Pipeline"]
         A1["SerpApi Google Flights Metasearch"] --> B["Multi-Key Corridor Orchestrator"]
-        A2["Playwright Stealth Scraper (Backup)"] --> B
+        A2["Playwright / Scrapling Stealth Scraper (Backup)"] --> B
         A3["Direct Airline Registry Simulators"] --> B
         B --> C["14-Key Corridor Registry<br/>(api_keys_registry.json)"]
         C --> D["Tariff Parser & Statutory Fee Unbundler<br/>(Base, ATF, UDF, PSF/ASF, GST)"]
@@ -24,7 +62,7 @@ graph TD
 
     subgraph L2_ETL ["2. Data Cleaning & Quality Governance"]
         D --> E["Tukey IQR Outlier Engine<br/>[₹1,200 – ₹45,000 Bounds]"]
-        E -->|Valid Microdata| F[("SQLite: fare_observations<br/>(WAL Mode)")]
+        E -->|Valid Microdata| F[("SQLite: fare_observations<br/>(WAL Mode) & Supabase")]
         E -->|Anomalies / Duplicates| G[("SQLite: fare_quarantine<br/>(Audit Store)")]
         F --> H["SHA-256 Microdata Hasher"]
         H --> I["Merkle Root Batch Hash Generator"]
@@ -35,10 +73,10 @@ graph TD
         F --> K
         K --> L["Laspeyres Price Index (Base-Period q0)"]
         K --> M["Paasche Price Index (Current-Period qt)"]
-        L & M --> N["Superlative Fisher Ideal Index (sqrt(L * P))"]
+        L & M --> N["Superlative Fisher Ideal Index (166.48)"]
         K --> O["Chained Törnqvist Translog Index"]
         N --> P["CPI Transmission Engine<br/>(Transport & Headline bps)"]
-        N --> Q[("SQLite: daily_indices<br/>(35-Day Trailing Rolling)")]
+        N --> Q[("SQLite / Supabase: daily_indices<br/>(35-Day Trailing Rolling)")]
     end
 
     subgraph L4_API ["4. Sovereign REST API Service (FastAPI)"]
@@ -67,36 +105,40 @@ graph TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Scheduler as Ingestion Scheduler / CLI
-    participant Batch as batch_fetch_real_data.py
-    participant Registry as api_keys_registry.json
-    participant SerpApi as Google Flights Endpoint
-    participant Cleaner as Tukey IQR & Quarantine
-    participant DB as SQLite (skyfare_live.db)
+    actor Scheduler as GitHub Actions Cron (3x Daily)
+    participant Batch as batch_fetch_real_data.py / Scrapling
+    participant Registry as api_keys_registry.json (14 Keys)
+    participant SerpApi as SerpApi / Direct Metasearch
+    participant Cleaner as Tukey IQR & Quarantine Engine
+    participant Supa as Supabase PostgreSQL Vault
+    participant DB as SQLite WAL (skyfare_live.db)
     participant Engine as index_engine.py
-    participant API as FastAPI Backend
+    participant API as Render FastAPI Backend
 
-    Scheduler->>Batch: Trigger Ingestion (Morning 10:00 / Night 22:30 IST)
-    Batch->>Registry: Lookup Corridor Key (e.g. DEL-BOM -> Baba Key 1)
-    Batch->>SerpApi: Fetch Quotes across T+1, T+7, T+15, T+30, T+45
+    Scheduler->>Batch: Automated Trigger (05:15, 10:15, 17:15 UTC)
+    Batch->>Registry: Lookup Corridor Key (14 Dedicated Routes)
+    Batch->>SerpApi: Fetch Live Quotes (T+1, T+7, T+15, T+30, T+45)
     alt Key Quota / 429 Error
         SerpApi-->>Batch: HTTP 429 Quota Exceeded
         Batch->>Registry: Log Alert for Teammate Owner
         Batch->>Registry: Fallback to SERPAPI_TEST_KEY (0519...aa8d)
         Batch->>SerpApi: Retry with Staging Fallback Key
     end
-    SerpApi-->>Batch: Raw JSON Flight Quotes
-    Batch->>Cleaner: Parse Unbundled Fees & Validate Bounds [1.2k, 45k]
+    SerpApi-->>Batch: Raw Domestic Flight Quotes
+    Batch->>Cleaner: Parse Statutory Fees (Base, ATF, UDF, PSF, GST) & Bounds [1.2k, 45k]
     alt Outlier or Malformed Quote
         Cleaner->>DB: INSERT INTO fare_quarantine (quarantined_reason)
-    else Valid Live Quote
+        Cleaner->>Supa: Batch Insert Quarantine
+    else Valid Live Microdata
         Cleaner->>DB: INSERT INTO fare_observations (SHA-256 hashed)
+        Cleaner->>Supa: Batch Insert Observations (42,945+ Vault)
     end
     Batch->>Engine: Trigger Index Recalculation
-    Engine->>DB: Read Latest Microdata & DGCA Weights
-    Engine->>Engine: Compute Jevons, Laspeyres, Paasche, Fisher, Törnqvist
+    Engine->>DB: Read Latest Microdata & DGCA Passenger Weights
+    Engine->>Engine: Compute Jevons, Laspeyres, Paasche, Fisher (166.48), Törnqvist
     Engine->>DB: INSERT INTO daily_indices
-    Engine-->>API: Cache Updated Daily Index (Fisher 114.45)
+    Engine->>Supa: Upsert daily_indices
+    Engine-->>API: Cache Updated Daily Index on Render
 ```
 
 ### 2.2 Citizen Search & Regulatory Surveillance Lifecycle

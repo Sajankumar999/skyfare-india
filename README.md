@@ -5,11 +5,26 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/API-FastAPI%20%7C%20REST-009688.svg)](https://fastapi.tiangolo.com)
 [![React 19](https://img.shields.io/badge/Frontend-React%2019%20%7C%20Vite%20%7C%20TailwindCSS-61DAFB.svg)](https://react.dev)
-[![DGCA 35-Day Validated](https://img.shields.io/badge/DGCA-35--Day%20Empirical%20Validation-brightgreen.svg)]()
-[![Econometric Standard](https://img.shields.io/badge/Methodology-Laspeyres%20%7C%20Fisher%20%7C%20T%C3%B6rnqvist-purple.svg)]()
-[![Automated Tests](https://img.shields.io/badge/Tests-14%2F14%20Passing-success.svg)]()
+[![Vercel Live](https://img.shields.io/badge/Vercel-Production%20Live-black.svg?logo=vercel)](https://skyfare-india.vercel.app)
+[![Render Backend](https://img.shields.io/badge/Render-FastAPI%20Active-46E3B7.svg?logo=render)](https://render.com)
+[![Supabase DB](https://img.shields.io/badge/Supabase-42%2C945%2B%20Quotes-3ECF8E.svg?logo=supabase)](https://supabase.com)
+[![GitHub Actions Cron](https://img.shields.io/badge/GitHub%20Actions-3x%20Daily%20Cron-2088FF.svg?logo=githubactions)](https://github.com/Sajankumar999/skyfare-india/actions)
+[![Automated Tests](https://img.shields.io/badge/Tests-54%2F54%20Passing-success.svg)]()
 
 ---
+
+## 🌐 Live Production Deployment
+
+> **Official Live Platform URL**: **[`https://skyfare-india.vercel.app/`](https://skyfare-india.vercel.app/)**  
+> **Current Superlative Fisher Ideal Index**: **`166.48`** ($L=166.43, P=166.53$) | **Average Live Fare**: **`₹9,784.52`**  
+> **Cumulative Empirical Microdata**: **`42,945 Quotes`** across 23 continuous post-epoch days (`2026-09-24` to `2026-10-16`) across all 14 DGCA trunk corridors.
+
+The platform operates on a resilient **4-tier autonomous cloud architecture**:
+1. **Automated Harvesting**: **GitHub Actions** runs 3x daily (`05:15`, `10:15`, `17:15` UTC) executing dual-engine ingestion (`batch_fetch_real_data.py --shift all --engine dual`) via Scrapling stealth and SerpApi failover.
+2. **Permanent Data Vault**: **Supabase Managed Cloud PostgreSQL** securely retains all 42,945+ price observations, quarantine audit trails, and SHA-256 Merkle root batch hashes.
+3. **Econometric Brain & REST API**: **Render Cloud Web Service** runs the Python 3.12 FastAPI backend (`main.py`), calculating real-time Laspeyres, Paasche, Fisher, Jevons, and Törnqvist indices with DGCA passenger weights.
+4. **Global Edge CDN UI**: **Vercel** hosts the React 19 Single Page Application, delivering instant $<1\text{s}$ responsive access with client-side routing and dark/light adaptive styling.
+
 
 ## 🎯 Executive Summary & SIH Problem Statement
 

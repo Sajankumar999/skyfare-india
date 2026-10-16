@@ -3,8 +3,8 @@
 
 * **Design System**: Sovereign India Intelligence (SII) Design Framework
 * **Theme Support**: Adaptive Dark & Light Modes with System Preference Synchronization
-* **Version**: `1.0.0`
-* **Last Updated**: `2026-09-24`
+* **Version**: `2.0.0 (Production Live)`
+* **Last Updated**: `2026-10-16`
 
 ---
 
@@ -51,26 +51,32 @@ A 4px horizontal tri-strip rendered across the top edge of every page:
 | **Subtle Borders** | `#E2E8F0` | `#1E293B` | `border-slate-200 dark:border-slate-800` |
 
 ### 2.4 Semantic Status & Indicator Colors
-* **Compliant / Verified / Live (Emerald)**:
+* **Compliant / Verified / Low Price (Emerald)**:
   - Background: `bg-emerald-50 dark:bg-emerald-950/40`
   - Text: `text-emerald-700 dark:text-emerald-300`
   - Solid: `#10B981` (`bg-emerald-500`)
-  - *Usage*: Verified live observations, compliant Rule 135 tariffs, active scrapers.
-* **Watchlist / Moderate Alert (Amber)**:
+  - *Usage*: Corridors showing negative price changes ($< 0\%$, below baseline), verified live observations, compliant Rule 135 tariffs, active scrapers.
+* **Stable Corridor / Nominal Variance (Sky Blue)**:
+  - Background: `bg-blue-50 dark:bg-blue-950/40`
+  - Text: `text-blue-700 dark:text-blue-300`
+  - Solid: `#3B82F6` (`bg-blue-500`)
+  - Selection Highlight / Focus: `#0284c7` with `#38bdf8` halo glow
+  - *Usage*: Corridors with nominal price movement ($0\% - +5\%$ vs baseline), active corridor selection polylines on SOI Vector Map and Real Google Maps.
+* **Moderate Alert / Elevated Demand (Amber)**:
   - Background: `bg-amber-50 dark:bg-amber-950/40`
   - Text: `text-amber-700 dark:text-amber-300`
   - Solid: `#F59E0B` (`bg-amber-500`)
-  - *Usage*: High-demand watchlist, moderate price increases, pending reviews.
+  - *Usage*: Corridors with $+5\% - +15\%$ price increase, high-demand watchlist, pending reviews.
 * **Surge Breach / Outlier / Danger (Rose)**:
   - Background: `bg-rose-50 dark:bg-rose-950/40`
   - Text: `text-rose-700 dark:text-rose-300`
   - Solid: `#EF4444` (`bg-rose-500`)
-  - *Usage*: DGCA Rule 135 tariff breaches, quarantined outlier fares, failed keys.
+  - *Usage*: Corridors with $> +15\%$ surge breach, DGCA Rule 135 tariff breaches, quarantined outlier fares, failed keys.
 * **Superlative Fisher / Econometric Benchmark (Violet)**:
   - Background: `bg-violet-50 dark:bg-violet-950/40`
   - Text: `text-violet-700 dark:text-violet-300`
   - Solid: `#8B5CF6` (`bg-violet-500`)
-  - *Usage*: Fisher Ideal Superlative Index ($114.45$), UN CPI standard ribbons.
+  - *Usage*: Fisher Ideal Superlative Index ($166.48$), UN CPI standard ribbons.
 
 ---
 
@@ -139,3 +145,17 @@ The layout dynamically adapts across standard Tailwind CSS breakpoints:
   - Always apply `cursor-pointer`.
 * **Dark Mode Transitions**:
   - Smooth theme switching controlled via the `dark` class toggled on `<html>` and `<body>`.
+
+### 5.3 Sovereign Map Container Geometry & Deep Dive Alignment
+* **Dual Engine Cartography**: Supports both Survey of India (SOI) Official Topographic Vector Map (`IndiaCorridorHeatmap.tsx`) and Photorealistic Real Google Maps (`RealGoogleMapView.tsx` with 3D tilt, satellite hybrid, and live meteorological cloud layers).
+* **Height Parity Enforcement**:
+  - Both map components declare `h-full min-h-[560px] lg:min-h-[590px]` with flex-stretch alignment (`items-stretch`).
+  - Matches the exact vertical bounding box of the adjacent *Corridor Deep Dive & DGCA Rule 135 Check* card on desktop displays ($\ge 1024\text{px}$).
+  - Eliminates awkward vertical letterboxing/margins above and below the territorial borders while providing ample headroom for flight route polylines and animated radar sweeps.
+* **4-Tier Route Tariff Coloring**:
+  - `🟢 Low Price (< 0%)`: Emerald (`#10b981`)
+  - `🔵 Stable (0 - 5%)`: Sky Blue (`#3b82f6`)
+  - `🟠 Watchlist (5 - 15%)`: Amber (`#f59e0b`)
+  - `🔴 Surge Breach (> 15%)`: Rose (`#ef4444`)
+  - Active Selected Corridor: Vivid sovereign blue (`#0284c7`) with `#38bdf8` pulse halo, brought to topmost z-index layer.
+

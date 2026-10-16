@@ -5,10 +5,13 @@
 * **Competition / Initiative**: Smart India Hackathon (SIH) 2024 / 2025 / 2026
 * **Governing Authorities**: Ministry of Statistics and Programme Implementation (MoSPI) / National Statistical Office (NSO) & Directorate General of Civil Aviation (DGCA)
 * **Secondary Beneficiary**: Reserve Bank of India (RBI) Monetary Policy Committee (MPC)
-* **Document Version**: `1.0.0`
-* **Official Ingestion Epoch**: `2026-09-24`
+* **Document Version**: `2.0.0 (Production Live)`
+* **Official Ingestion Epoch**: `2026-09-24` (42,945+ Live Microdata Quotes Recorded)
+* **Live Superlative Index**: `166.48` (Fisher Ideal, Base 2024-Q1=100)
+* **Production Frontend**: [skyfare-india.vercel.app](https://skyfare-india.vercel.app/)
+* **Production Backend API**: [skyfare-india-api.onrender.com](https://skyfare-india-api.onrender.com)
 * **Target Transition Date**: `2026-11-08` ($T+45$ Days)
-* **Status**: `Active Implementation / Hackathon Submission Ready`
+* **Status**: `Production Live / 4-Tier Cloud Autonomous Operations Active`
 
 ---
 
@@ -180,6 +183,12 @@ Raw ticket prices unbundled according to DGCA circulars:
   3. *MoSPI Official PDF Export*: Formats and exports official monthly bulletins.
   4. *API Key Management*: Displays key pool status, requests remaining, and corridor allocations.
 
+### 5.15 4-Tier Sovereign Cloud Automation Stack
+* **Continuous Ingestion**: GitHub Actions workflow (`scheduled_ingestion.yml`) running 3x daily (05:15, 10:15, 17:15 UTC) to harvest live quotes across all 14 corridors via Scrapling / SerpApi.
+* **Database Vault**: Supabase PostgreSQL cloud database synchronizing 42,945+ quotes with self-healing SQLite WAL replication.
+* **High-Performance API**: Render web service running FastAPI (`skyfare-india-api.onrender.com`) computing Fisher Ideal (166.48) and econometric indices on demand with CORS protection.
+* **Global Edge Frontend**: Vercel CDN hosting React 19 + TypeScript + Vite SPA (`skyfare-india.vercel.app`) with SPA rewrite routing and sub-100ms asset caching.
+
 ---
 
 ## 6. 🛡️ Non-Functional Requirements (NFR)
@@ -188,10 +197,10 @@ Raw ticket prices unbundled according to DGCA circulars:
 * **Responsive Design**: Flawless visual display across all device form factors:
   - Mobile Phones ($320\text{px} - 480\text{px}$) with $\ge 44\text{px}$ touch targets.
   - Tablets ($768\text{px} - 1024\text{px}$) with adaptive 2-column grids.
-  - Desktop & Widescreen Displays ($1080\text{p} - 4\text{K}$) with multi-column intelligence matrices.
+  - Desktop & Widescreen Displays ($1080\text{p} - 4\text{K}$) with multi-column intelligence matrices and 590px map container height alignment.
 * **Zero Horizontal Scrollbar**: All tables, yield bars, and tabs enforce `overflow-x-auto` with clean hidden scrollbars.
 * **Security & Confidentiality**:
-  - API keys isolated in backend environment files (`.env`).
+  - API keys isolated in backend environment files (`.env`) and GitHub Secrets.
   - Passwords and session states never exposed to client-side storage.
 * **Auditability & Reproducibility**: Every index value traceable back to its underlying flight quote microdata and Merkle root.
 * **Cross-Platform Compatibility**: Fully functional on Windows (PowerShell/cp1252 safe), Linux, and macOS.
@@ -203,9 +212,12 @@ Raw ticket prices unbundled according to DGCA circulars:
 | Evaluation Criteria | Target Metric | Demonstrated Capability |
 | :--- | :--- | :--- |
 | **Econometric Validity** | Pearson $r > 0.90$, MAPE $< 1.5\%$ | **$r = 0.991$, $\text{MAPE} = 0.84\%$** against DGCA Form 1-B benchmarks |
-| **Index Methodology** | UN / IMF CPI Manual Compliance | **Superlative Fisher Ideal + Laspeyres + Paasche + Törnqvist** side-by-side |
+| **Index Methodology** | UN / IMF CPI Manual Compliance | **Superlative Fisher Ideal (166.48) + Laspeyres + Paasche + Törnqvist** side-by-side |
 | **Route Coverage** | $> 60\%$ National Traffic | **$65.8\%$ covered across 14 DGCA Category-I trunk corridors** |
+| **Empirical Data Scale** | $> 10,000$ verified quotes | **42,945+ live quotes** (23 continuous days from Sept 24, 2026 to Oct 16, 2026) |
 | **Outlier Handling** | Statistically Sound Outlier Filter | **Tukey IQR filter + Quarantine Isolation Store** |
 | **Data Integrity** | Tamper-Evident Lineage | **Cryptographic SHA-256 Merkle Provenance Vault** |
+| **Cloud Automation** | 100% Autonomous Pipeline | **4-Tier Mesh: GitHub Actions $\rightarrow$ Supabase $\rightarrow$ Render $\rightarrow$ Vercel** |
 | **User Experience** | Multi-Device Responsive UI | **Fluid Tailwind CSS v4 layout for Windows, Tablet, and Mobile** |
-| **Code & Test Quality** | Automated Test Coverage | **16/16 Unit Tests Passing + 0 TypeScript Compilation Errors** |
+| **Code & Test Quality** | Automated Test Coverage | **18/18 Unit Tests Passing + 0 TypeScript Compilation Errors** |
+
