@@ -254,6 +254,10 @@ export const IndiaCorridorHeatmap: React.FC<HeatmapProps> = ({
               <span className="text-orange-700 dark:text-orange-400">Moderate (5-15%)</span>
             </div>
             <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              <span className="text-blue-700 dark:text-blue-400">Stable (0-5%)</span>
+            </div>
+            <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               <span className="text-emerald-700 dark:text-emerald-400">Softening (&lt;0%)</span>
             </div>
