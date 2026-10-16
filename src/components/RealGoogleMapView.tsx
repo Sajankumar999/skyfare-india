@@ -215,12 +215,21 @@ export const RealGoogleMapView: React.FC<RealGoogleMapViewProps> = ({
 
   const resetView = () => {
     mapInstanceRef.current?.setView([22.8, 79.8], 4.8);
+    mapInstanceRef.current?.invalidateSize();
   };
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      mapInstanceRef.current?.invalidateSize();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="relative w-full h-[460px] rounded-xl overflow-hidden border border-slate-700/60 shadow-inner bg-slate-950">
+    <div className="relative w-full h-full min-h-[560px] lg:min-h-[590px] rounded-xl overflow-hidden border border-slate-700/60 shadow-inner bg-slate-950">
       {/* Map Target */}
       <div ref={mapContainerRef} className="w-full h-full z-0" />
+
 
       {/* Top Map Type Switcher Controls */}
       <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md p-1 rounded-lg border border-slate-700 shadow-md">

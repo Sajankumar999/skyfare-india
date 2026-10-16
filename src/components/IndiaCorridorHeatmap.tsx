@@ -265,9 +265,9 @@ export const IndiaCorridorHeatmap: React.FC<HeatmapProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         {/* Map Canvas (7 cols) */}
-        <div className="lg:col-span-7">
+        <div className="lg:col-span-7 flex flex-col h-full">
           {viewMode === 'google_maps' ? (
             <RealGoogleMapView
               activeCorridorCode={activeCorridorCode}
@@ -278,12 +278,13 @@ export const IndiaCorridorHeatmap: React.FC<HeatmapProps> = ({
               }}
             />
           ) : (
-            <div className="relative flex items-center justify-center p-3 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-inner">
+            <div className="relative flex-1 w-full h-full min-h-[560px] lg:min-h-[590px] flex items-center justify-center p-3 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden shadow-inner">
               <svg
                 viewBox="0 0 1000 1050"
-                className="w-full max-w-[500px] aspect-square select-none"
+                className="w-full h-full max-h-[570px] aspect-square select-none"
                 aria-label="Official Survey of India Flight Route Network Map"
               >
+
                 <defs>
                   {/* Glowing Filters */}
                   <filter id="glow-red" x="-30%" y="-30%" width="160%" height="160%">
