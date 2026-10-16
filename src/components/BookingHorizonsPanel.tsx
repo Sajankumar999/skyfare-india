@@ -5,75 +5,86 @@ import { Clock, TrendingUp, TrendingDown, Layers, BarChart2, Table as TableIcon,
 import { CarrierAnalyticsPanel } from './CarrierAnalyticsPanel';
 import { useIsMobile } from '../utils/useIsMobile';
 import { apiUrl } from '../config/api';
+import { getCachedData, fetchWithCache } from '../services/apiCache';
+
+const parseTemporalRows = (payload: unknown): HorizonMatrixRow[] | null => {
+  if (
+    typeof payload !== 'object' ||
+    payload === null ||
+    !Array.isArray((payload as { data?: unknown }).data)
+  ) {
+    return null;
+  }
+
+  const liveRows = (payload as { data: unknown[] }).data.filter(
+    (row): row is {
+      horizon: string;
+      current_fare: number;
+      baseline_fare: number;
+      spread_pct: number;
+      observations: number;
+    } => (
+      typeof row === 'object' &&
+      row !== null &&
+      typeof (row as { horizon?: unknown }).horizon === 'string' &&
+      Number.isFinite(Number((row as { current_fare?: unknown }).current_fare)) &&
+      Number.isFinite(Number((row as { baseline_fare?: unknown }).baseline_fare)) &&
+      Number.isFinite(Number((row as { spread_pct?: unknown }).spread_pct)) &&
+      Number.isFinite(Number((row as { observations?: unknown }).observations))
+    )
+  );
+
+  if (liveRows.length === 0) return null;
+
+  return liveRows.map((row) => {
+    const fallback = HORIZON_MATRIX_DATA.find((item) => item.horizon === row.horizon)
+      ?? HORIZON_MATRIX_DATA[0];
+    return {
+      ...fallback,
+      nationalAvgFare: Number(row.current_fare),
+      baselineFare: Number(row.baseline_fare),
+      spreadPct: Number(row.spread_pct),
+      sampleQuotes: Number(row.observations),
+    };
+  });
+};
 
 export const BookingHorizonsPanel: React.FC = () => {
   const isMobile = useIsMobile(640);
   const [activeSection, setActiveSection] = useState<'horizons' | 'market'>('horizons');
   const [selectedHorizon, setSelectedHorizon] = useState<string>('T+1');
   const [viewMode, setViewMode] = useState<'curve' | 'bars' | 'table'>('curve');
-  const [horizonData, setHorizonData] = useState(HORIZON_MATRIX_DATA);
-  const [isApiConnected, setIsApiConnected] = useState(false);
+  const [horizonData, setHorizonData] = useState<HorizonMatrixRow[]>(() => {
+    const cached = getCachedData(apiUrl('/api/v1/analytics/temporal'));
+    const parsed = parseTemporalRows(cached);
+    return parsed || HORIZON_MATRIX_DATA;
+  });
+  const [isApiConnected, setIsApiConnected] = useState<boolean>(() => {
+    return Boolean(getCachedData(apiUrl('/api/v1/analytics/temporal')));
+  });
 
   useEffect(() => {
     const controller = new AbortController();
 
     const loadHorizonData = async () => {
       try {
-        const response = await fetch(apiUrl('/api/v1/analytics/temporal'), {
+        const payload = await fetchWithCache<unknown>(apiUrl('/api/v1/analytics/temporal'), {
           signal: controller.signal,
+          ttlMs: 120000,
         });
-        if (!response.ok) {
-          throw new Error(`Temporal API responded with ${response.status}`);
-        }
 
-        const payload: unknown = await response.json();
-        if (
-          typeof payload !== 'object' ||
-          payload === null ||
-          !Array.isArray((payload as { data?: unknown }).data)
-        ) {
-          throw new Error('Temporal API returned an invalid response');
-        }
-
-        const liveRows = (payload as { data: unknown[] }).data.filter(
-          (row): row is {
-            horizon: string;
-            current_fare: number;
-            baseline_fare: number;
-            spread_pct: number;
-            observations: number;
-          } => (
-            typeof row === 'object' &&
-            row !== null &&
-            typeof (row as { horizon?: unknown }).horizon === 'string' &&
-            Number.isFinite(Number((row as { current_fare?: unknown }).current_fare)) &&
-            Number.isFinite(Number((row as { baseline_fare?: unknown }).baseline_fare)) &&
-            Number.isFinite(Number((row as { spread_pct?: unknown }).spread_pct)) &&
-            Number.isFinite(Number((row as { observations?: unknown }).observations))
-          )
-        );
-
-        if (liveRows.length === 0) {
+        const liveData = parseTemporalRows(payload);
+        if (!liveData) {
           throw new Error('Temporal API returned no valid horizons');
         }
 
-        setHorizonData(liveRows.map((row) => {
-          const fallback = HORIZON_MATRIX_DATA.find((item) => item.horizon === row.horizon)
-            ?? HORIZON_MATRIX_DATA[0];
-          return {
-            ...fallback,
-            nationalAvgFare: Number(row.current_fare),
-            baselineFare: Number(row.baseline_fare),
-            spreadPct: Number(row.spread_pct),
-            sampleQuotes: Number(row.observations),
-          };
-        }));
+        setHorizonData(liveData);
 
-        const elasticityResponse = await fetch(apiUrl('/api/v1/analytics/elasticity'), {
-          signal: controller.signal,
-        });
-        if (elasticityResponse.ok) {
-          const elasticityPayload: unknown = await elasticityResponse.json();
+        try {
+          const elasticityPayload = await fetchWithCache<unknown>(apiUrl('/api/v1/analytics/elasticity'), {
+            signal: controller.signal,
+            ttlMs: 120000,
+          });
           if (typeof elasticityPayload === 'object' && elasticityPayload !== null && Array.isArray((elasticityPayload as { data?: unknown }).data)) {
             const elasticityByHorizon = new Map(
               (elasticityPayload as { data: Array<{ horizon?: unknown; volatility_index?: unknown }> }).data
@@ -85,7 +96,10 @@ export const BookingHorizonsPanel: React.FC = () => {
               volatilityIndex: elasticityByHorizon.get(row.horizon) ?? row.volatilityIndex,
             })));
           }
+        } catch {
+          // Non-critical elasticity enhancement
         }
+
         setIsApiConnected(true);
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -224,10 +238,15 @@ export const BookingHorizonsPanel: React.FC = () => {
           </button>
         </div>
 
-        {isApiConnected && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 mr-1">
+        {isApiConnected ? (
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 mr-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             Live Temporal API Connected
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 mr-1 animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+            Connecting Temporal Feeds...
           </span>
         )}
       </div>

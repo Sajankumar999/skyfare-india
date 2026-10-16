@@ -4,6 +4,7 @@ import { CorridorMovement } from '../types';
 import { IndiaCorridorHeatmap } from './IndiaCorridorHeatmap';
 import { Layers } from 'lucide-react';
 import { apiUrl } from '../config/api';
+import { getCachedData, fetchWithCache } from '../services/apiCache';
 
 const CORRIDOR_DISTANCES: Record<string, number> = {
   'DEL-BOM': 1150,
@@ -22,85 +23,93 @@ const CORRIDOR_DISTANCES: Record<string, number> = {
   'CCU-BOM': 1660,
 };
 
+const AIRPORT_CITIES: Record<string, string> = {
+  DEL: 'Delhi',
+  BOM: 'Mumbai',
+  BLR: 'Bengaluru',
+  CCU: 'Kolkata',
+  HYD: 'Hyderabad',
+  MAA: 'Chennai',
+  GOI: 'Goa',
+};
+
+const parseRouteData = (data: unknown, currentCorridors: CorridorMovement[] = TOP_MOVING_CORRIDORS): CorridorMovement[] | null => {
+  if (!Array.isArray(data)) return null;
+
+  const liveRoutes = data.filter((route): route is {
+    route_code: string;
+    current_fare: number;
+    baseline_fare: number;
+    change_pct: number;
+  } => (
+    typeof route === 'object' &&
+    route !== null &&
+    typeof (route as { route_code?: unknown }).route_code === 'string' &&
+    Number.isFinite(Number((route as { current_fare?: unknown }).current_fare)) &&
+    Number.isFinite(Number((route as { baseline_fare?: unknown }).baseline_fare)) &&
+    Number.isFinite(Number((route as { change_pct?: unknown }).change_pct))
+  ));
+
+  if (liveRoutes.length === 0) return null;
+
+  return liveRoutes.map((route) => {
+    const fallback = currentCorridors.find((corridor) => corridor.routeCode === route.route_code)
+      ?? TOP_MOVING_CORRIDORS.find((corridor) => corridor.routeCode === route.route_code);
+    const currentFare = Number(route.current_fare);
+    const baselineFare = Number(route.baseline_fare);
+    const changePct = Number(route.change_pct);
+    const rpkWeightPct = Number((route as { rpk_weight_pct?: number }).rpk_weight_pct ?? fallback?.rpkWeightPct ?? 0);
+    const cpiContributionBps = Number((route as { cpi_contribution_bps?: number }).cpi_contribution_bps ?? fallback?.cpiContributionBps ?? 0);
+    const [origCode, destCode] = route.route_code.split('-');
+
+    return {
+      ...(fallback ?? {
+        routeCode: route.route_code,
+        originCity: AIRPORT_CITIES[origCode] || origCode,
+        destCity: AIRPORT_CITIES[destCode] || destCode || '',
+        rpkWeightPct,
+        cpiContributionBps,
+      }),
+      originCity: fallback?.originCity || AIRPORT_CITIES[origCode] || origCode,
+      destCity: fallback?.destCity || AIRPORT_CITIES[destCode] || destCode || '',
+      currentFare,
+      baselineFare,
+      changePct,
+      rpkWeightPct,
+      cpiContributionBps,
+      status: changePct >= 15 ? 'CRITICAL_SPIKE' : changePct >= 5 ? 'ELEVATED' : changePct < 0 ? 'SOFTENING' : 'NORMAL',
+    };
+  });
+};
+
 export const RouteIntelligencePanel: React.FC = () => {
   const [selectedRouteCode, setSelectedRouteCode] = useState<string>('BOM-DEL');
   const [corridorSort, setCorridorSort] = useState<'change' | 'weight' | 'yield'>('change');
-  const [corridors, setCorridors] = useState(TOP_MOVING_CORRIDORS);
-  const [isApiConnected, setIsApiConnected] = useState(false);
+  const [corridors, setCorridors] = useState<CorridorMovement[]>(() => {
+    const cached = getCachedData(apiUrl('/api/v1/routes'));
+    const parsed = parseRouteData(cached);
+    return parsed || TOP_MOVING_CORRIDORS;
+  });
+  const [isApiConnected, setIsApiConnected] = useState<boolean>(() => {
+    return Boolean(getCachedData(apiUrl('/api/v1/routes')));
+  });
 
   useEffect(() => {
     const controller = new AbortController();
 
     const loadRoutes = async () => {
       try {
-        const response = await fetch(apiUrl('/api/v1/routes'), {
+        const data = await fetchWithCache<unknown>(apiUrl('/api/v1/routes'), {
           signal: controller.signal,
+          ttlMs: 120000,
         });
-        if (!response.ok) {
-          throw new Error(`Routes API responded with ${response.status}`);
-        }
 
-        const data: unknown = await response.json();
-        if (!Array.isArray(data)) {
-          throw new Error('Routes API returned an invalid response');
-        }
-
-        const liveRoutes = data.filter((route): route is {
-          route_code: string;
-          current_fare: number;
-          baseline_fare: number;
-          change_pct: number;
-        } => (
-          typeof route === 'object' &&
-          route !== null &&
-          typeof (route as { route_code?: unknown }).route_code === 'string' &&
-          Number.isFinite(Number((route as { current_fare?: unknown }).current_fare)) &&
-          Number.isFinite(Number((route as { baseline_fare?: unknown }).baseline_fare)) &&
-          Number.isFinite(Number((route as { change_pct?: unknown }).change_pct))
-        ));
-
-        if (liveRoutes.length === 0) {
+        const liveCorridors = parseRouteData(data);
+        if (!liveCorridors) {
           throw new Error('Routes API returned no valid routes');
         }
 
-        const AIRPORT_CITIES: Record<string, string> = {
-          DEL: 'Delhi',
-          BOM: 'Mumbai',
-          BLR: 'Bengaluru',
-          CCU: 'Kolkata',
-          HYD: 'Hyderabad',
-          MAA: 'Chennai',
-          GOI: 'Goa',
-        };
-
-        setCorridors((currentCorridors) => liveRoutes.map((route) => {
-          const fallback = currentCorridors.find((corridor) => corridor.routeCode === route.route_code)
-            ?? TOP_MOVING_CORRIDORS.find((corridor) => corridor.routeCode === route.route_code);
-          const currentFare = Number(route.current_fare);
-          const baselineFare = Number(route.baseline_fare);
-          const changePct = Number(route.change_pct);
-          const rpkWeightPct = Number((route as { rpk_weight_pct?: number }).rpk_weight_pct ?? fallback?.rpkWeightPct ?? 0);
-          const cpiContributionBps = Number((route as { cpi_contribution_bps?: number }).cpi_contribution_bps ?? fallback?.cpiContributionBps ?? 0);
-          const [origCode, destCode] = route.route_code.split('-');
-
-          return {
-            ...(fallback ?? {
-              routeCode: route.route_code,
-              originCity: AIRPORT_CITIES[origCode] || origCode,
-              destCity: AIRPORT_CITIES[destCode] || destCode || '',
-              rpkWeightPct,
-              cpiContributionBps,
-            }),
-            originCity: fallback?.originCity || AIRPORT_CITIES[origCode] || origCode,
-            destCity: fallback?.destCity || AIRPORT_CITIES[destCode] || destCode || '',
-            currentFare,
-            baselineFare,
-            changePct,
-            rpkWeightPct,
-            cpiContributionBps,
-            status: changePct >= 15 ? 'CRITICAL_SPIKE' : changePct >= 5 ? 'ELEVATED' : changePct < 0 ? 'SOFTENING' : 'NORMAL',
-          };
-        }));
+        setCorridors(liveCorridors);
         setIsApiConnected(true);
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -145,10 +154,15 @@ export const RouteIntelligencePanel: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            {isApiConnected && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+            {isApiConnected ? (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Live API Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                Connecting Route Feeds...
               </span>
             )}
             <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">

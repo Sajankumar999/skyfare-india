@@ -6,6 +6,7 @@ import { INDIA_SURVEY_MAINLAND_PATH, INDIA_SURVEY_ISLANDS_PATHS } from '../data/
 import { RealGoogleMapView } from './RealGoogleMapView';
 import { MapPin, TrendingUp, TrendingDown, Info, ShieldAlert, AlertTriangle, Zap, Layers, Globe, Compass, ShieldCheck, ArrowLeftRight, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { apiUrl } from '../config/api';
+import { fetchWithCache } from '../services/apiCache';
 
 interface HeatmapProps {
   selectedRouteCode?: string;
@@ -46,14 +47,10 @@ export const IndiaCorridorHeatmap: React.FC<HeatmapProps> = ({
 
     const loadHeatmap = async () => {
       try {
-        const response = await fetch(apiUrl('/api/v1/routes'), {
+        const data = await fetchWithCache<unknown>(apiUrl('/api/v1/routes'), {
           signal: controller.signal,
+          ttlMs: 120000,
         });
-        if (!response.ok) {
-          throw new Error(`Routes API responded with ${response.status}`);
-        }
-
-        const data: unknown = await response.json();
         if (!Array.isArray(data)) {
           throw new Error('Routes API returned an invalid response');
         }
@@ -197,10 +194,15 @@ export const IndiaCorridorHeatmap: React.FC<HeatmapProps> = ({
               <Zap className="w-4 h-4 text-amber-500" />
               Airfare Change Across India
             </h3>
-            {isApiConnected && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+            {isApiConnected ? (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Live API Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                Connecting Corridors...
               </span>
             )}
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">

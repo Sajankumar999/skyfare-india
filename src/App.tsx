@@ -15,8 +15,9 @@ import { SupportView } from './components/SupportView';
 import { AboutView } from './components/AboutView';
 import { QuickSearchModal } from './components/QuickSearchModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
-import { ShieldCheck, Lock, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, Lock, ShieldAlert, RefreshCw } from 'lucide-react';
 import { apiUrl } from './config/api';
+import { useBackendStatus } from './utils/useBackendStatus';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<MainViewTab>('citizen_portal');
@@ -34,6 +35,8 @@ export default function App() {
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState<boolean>(false);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const backend = useBackendStatus();
+  const [hasAnnouncedConnected, setHasAnnouncedConnected] = useState<boolean>(false);
 
   // Sync dark class on html / root and body
   useEffect(() => {
@@ -125,6 +128,14 @@ export default function App() {
     }
   };
 
+  // Notify user when live connection is established
+  useEffect(() => {
+    if (backend.isConnected && !hasAnnouncedConnected) {
+      setHasAnnouncedConnected(true);
+      showToast(`🟢 Live Sovereign Engine Connected: ${backend.observations.toLocaleString('en-IN')}+ quotes active (166.48 Index)`);
+    }
+  }, [backend.isConnected, hasAnnouncedConnected, backend.observations]);
+
   return (
     <div className={`min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors w-full overflow-x-hidden ${isDark ? 'dark' : ''}`}>
       {/* Toast Notification */}
@@ -143,6 +154,21 @@ export default function App() {
         onOpenSearch={() => setIsSearchOpen(true)}
         onNavigateToView={(viewId) => setCurrentView(viewId as MainViewTab)}
       />
+
+      {/* Sovereign Cloud Connection & Wakeup Banner */}
+      {backend.isConnecting && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-blue-500/10 to-indigo-500/15 border-b border-amber-300/40 dark:border-amber-700/40 px-3 sm:px-6 py-2 text-xs flex items-center justify-between text-amber-950 dark:text-amber-200 animate-fadeIn">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping shrink-0" />
+            <span className="font-semibold truncate">
+              ⚡ Connecting to Sovereign Compute Engine (Waking cloud backend)... Streaming live 166.48 Fisher Index & 42,945+ quotes...
+            </span>
+          </div>
+          <span className="text-[10px] text-amber-800 dark:text-amber-300 opacity-80 hidden md:inline font-mono shrink-0 pl-3">
+            Free-tier cold start (~15-25s) • Auto-syncing
+          </span>
+        </div>
+      )}
 
       {/* Main Layout Body: Responsive Sidebar + Content Area */}
       <div className="flex-1 flex w-full overflow-x-hidden">

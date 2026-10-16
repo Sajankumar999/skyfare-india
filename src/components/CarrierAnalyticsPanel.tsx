@@ -2,33 +2,48 @@ import React, { useEffect, useState } from 'react';
 import { CARRIER_ANALYTICS_DATA, CHANNEL_HEALTH_DATA } from '../data/mockData';
 import { Users, Wifi, Activity, ShieldCheck, ArrowUpRight, ArrowDownRight, CheckCircle2, AlertCircle } from 'lucide-react';
 import { apiUrl } from '../config/api';
+import { getCachedData, fetchWithCache } from '../services/apiCache';
 
 export const CarrierAnalyticsPanel: React.FC = () => {
   const [filterModel, setFilterModel] = useState<'ALL' | 'LCC' | 'FSC'>('ALL');
-  const [carriers, setCarriers] = useState(CARRIER_ANALYTICS_DATA);
-  const [channels, setChannels] = useState(CHANNEL_HEALTH_DATA);
-  const [totalQuotesCount, setTotalQuotesCount] = useState<number>(() =>
-    CARRIER_ANALYTICS_DATA.reduce((acc, c) => acc + c.quotesIngested, 0)
-  );
-  const [totalFleetCount, setTotalFleetCount] = useState<number>(() =>
-    CARRIER_ANALYTICS_DATA.reduce((acc, c) => acc + c.fleetActive, 0)
-  );
-  const [hhiValue, setHhiValue] = useState<number>(4680);
-  const [verificationRate, setVerificationRate] = useState<number>(100.0);
-  const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
+  const [carriers, setCarriers] = useState(() => {
+    const cached = getCachedData<{ carriers?: typeof CARRIER_ANALYTICS_DATA }>(apiUrl('/api/v1/analytics/carriers'));
+    return (cached && Array.isArray(cached.carriers) && cached.carriers.length > 0) ? cached.carriers : CARRIER_ANALYTICS_DATA;
+  });
+  const [channels, setChannels] = useState(() => {
+    const cached = getCachedData<{ channels?: typeof CHANNEL_HEALTH_DATA }>(apiUrl('/api/v1/analytics/carriers'));
+    return (cached && Array.isArray(cached.channels) && cached.channels.length > 0) ? cached.channels : CHANNEL_HEALTH_DATA;
+  });
+  const [totalQuotesCount, setTotalQuotesCount] = useState<number>(() => {
+    const cached = getCachedData<{ total_quotes?: number }>(apiUrl('/api/v1/analytics/carriers'));
+    return (cached && typeof cached.total_quotes === 'number') ? cached.total_quotes : CARRIER_ANALYTICS_DATA.reduce((acc, c) => acc + c.quotesIngested, 0);
+  });
+  const [totalFleetCount, setTotalFleetCount] = useState<number>(() => {
+    const cached = getCachedData<{ total_fleet?: number }>(apiUrl('/api/v1/analytics/carriers'));
+    return (cached && typeof cached.total_fleet === 'number') ? cached.total_fleet : CARRIER_ANALYTICS_DATA.reduce((acc, c) => acc + c.fleetActive, 0);
+  });
+  const [hhiValue, setHhiValue] = useState<number>(() => {
+    const cached = getCachedData<{ hhi?: number }>(apiUrl('/api/v1/analytics/carriers'));
+    return (cached && typeof cached.hhi === 'number') ? cached.hhi : 4680;
+  });
+  const [verificationRate, setVerificationRate] = useState<number>(() => {
+    const cached = getCachedData<{ verification_rate_pct?: number }>(apiUrl('/api/v1/analytics/carriers'));
+    return (cached && typeof cached.verification_rate_pct === 'number') ? cached.verification_rate_pct : 100.0;
+  });
+  const [isApiConnected, setIsApiConnected] = useState<boolean>(() => {
+    return Boolean(getCachedData(apiUrl('/api/v1/analytics/carriers')));
+  });
 
   useEffect(() => {
     const controller = new AbortController();
 
     const fetchCarrierData = async () => {
       try {
-        const response = await fetch(apiUrl('/api/v1/analytics/carriers'), {
+        const payload = await fetchWithCache<any>(apiUrl('/api/v1/analytics/carriers'), {
           signal: controller.signal,
+          ttlMs: 120000,
         });
-        if (!response.ok) {
-          throw new Error(`Carrier analytics API responded with ${response.status}`);
-        }
-        const payload = await response.json();
+
         if (
           payload &&
           Array.isArray(payload.carriers) &&
@@ -105,9 +120,13 @@ export const CarrierAnalyticsPanel: React.FC = () => {
           </div>
           <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 font-medium flex items-center gap-1.5">
             <span>{verificationRate}% verification rate</span>
-            {isApiConnected && (
+            {isApiConnected ? (
               <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                 LIVE
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 animate-pulse">
+                SYNCING...
               </span>
             )}
           </div>

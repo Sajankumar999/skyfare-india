@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, Activity, MousePointerClick } from 'lucide-react';
 import { useIsMobile } from '../utils/useIsMobile';
 import { apiUrl } from '../config/api';
+import { getCachedData, fetchWithCache } from '../services/apiCache';
 
 export type TimeRange = '7D' | '1M' | '3M' | '6M' | '1Y';
 
@@ -20,6 +21,37 @@ const formatAxisDate = (isoDate: string): string => {
     return `${d} ${months[monthIdx] || m}`;
   }
   return isoDate;
+};
+
+const parseTimeseriesRows = (payload: unknown): TrendDataPoint[] | null => {
+  if (
+    typeof payload !== 'object' ||
+    payload === null ||
+    !Array.isArray((payload as { data?: unknown }).data)
+  ) return null;
+
+  const rows = (payload as { data: unknown[] }).data.flatMap((row): TrendDataPoint[] => {
+    if (typeof row !== 'object' || row === null) return [];
+    const item = row as Record<string, unknown>;
+    const values = [
+      item.index_date,
+      item.laspeyres_index,
+      item.fisher_ideal_index,
+      item.paasche_index,
+    ];
+    if (
+      typeof values[0] !== 'string' ||
+      !values.slice(1).every((value) => Number.isFinite(Number(value)))
+    ) return [];
+    return [{
+      date: formatAxisDate(values[0]),
+      laspeyres: Number(values[1]),
+      fisher: Number(values[2]),
+      paasche: Number(values[3]),
+    }];
+  });
+
+  return rows.length >= 2 ? rows : null;
 };
 
 const TREND_DATA: Record<TimeRange, TrendDataPoint[]> = {
@@ -83,45 +115,25 @@ export const AirfareTrendGraph: React.FC = () => {
   const [activeRange, setActiveRange] = useState<TimeRange>('7D');
   const [hoveredPoint, setHoveredPoint] = useState<TrendDataPoint | null>(null);
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
-  const [liveData, setLiveData] = useState<TrendDataPoint[] | null>(null);
-  const [isApiConnected, setIsApiConnected] = useState(false);
+  const [liveData, setLiveData] = useState<TrendDataPoint[] | null>(() => {
+    const cached = getCachedData(apiUrl('/api/v1/index/timeseries'));
+    return parseTimeseriesRows(cached);
+  });
+  const [isApiConnected, setIsApiConnected] = useState<boolean>(() => {
+    return Boolean(getCachedData(apiUrl('/api/v1/index/timeseries')));
+  });
 
   useEffect(() => {
     const controller = new AbortController();
     const loadTimeseries = async () => {
       try {
-        const response = await fetch(apiUrl('/api/v1/index/timeseries'), {
+        const payload = await fetchWithCache<unknown>(apiUrl('/api/v1/index/timeseries'), {
           signal: controller.signal,
+          ttlMs: 120000,
         });
-        if (!response.ok) throw new Error(`Timeseries API responded with ${response.status}`);
-        const payload: unknown = await response.json();
-        if (
-          typeof payload !== 'object' ||
-          payload === null ||
-          !Array.isArray((payload as { data?: unknown }).data)
-        ) throw new Error('Invalid timeseries response');
 
-        const rows = (payload as { data: unknown[] }).data.flatMap((row): TrendDataPoint[] => {
-          if (typeof row !== 'object' || row === null) return [];
-          const item = row as Record<string, unknown>;
-          const values = [
-            item.index_date,
-            item.laspeyres_index,
-            item.fisher_ideal_index,
-            item.paasche_index,
-          ];
-          if (
-            typeof values[0] !== 'string' ||
-            !values.slice(1).every((value) => Number.isFinite(Number(value)))
-          ) return [];
-          return [{
-            date: formatAxisDate(values[0]),
-            laspeyres: Number(values[1]),
-            fisher: Number(values[2]),
-            paasche: Number(values[3]),
-          }];
-        });
-        if (rows.length < 2) throw new Error('Insufficient persisted index history');
+        const rows = parseTimeseriesRows(payload);
+        if (!rows) throw new Error('Insufficient persisted index history');
         setLiveData(rows);
         setIsApiConnected(true);
       } catch (error) {
@@ -217,10 +229,15 @@ export const AirfareTrendGraph: React.FC = () => {
             <h3 className="font-extrabold text-base text-slate-900 dark:text-white">
               National Airfare Index Trend Graph
             </h3>
-            {isApiConnected && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+            {isApiConnected ? (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Live API Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                Connecting History...
               </span>
             )}
           </div>

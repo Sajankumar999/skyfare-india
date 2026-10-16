@@ -24,6 +24,7 @@ import {
   PieChart
 } from 'lucide-react';
 import { apiUrl } from '../config/api';
+import { getCachedData, fetchWithCache } from '../services/apiCache';
 
 export type MainViewTab =
   | 'citizen_portal'
@@ -61,32 +62,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenAdminLogin,
   onAdminLogout,
 }) => {
-  const [liveNationalIndex, setLiveNationalIndex] = useState<string>('114.45');
+  const [liveNationalIndex, setLiveNationalIndex] = useState<string>(() => {
+    const cached = getCachedData<{ fisher_ideal_index?: number }>(apiUrl('/api/v1/indices/today'));
+    if (cached?.fisher_ideal_index) {
+      return Number(cached.fisher_ideal_index).toFixed(2);
+    }
+    return '166.48';
+  });
 
   useEffect(() => {
     const controller = new AbortController();
 
     const loadNationalIndex = async () => {
       try {
-        const response = await fetch(apiUrl('/api/v1/indices/today'), {
+        const data = await fetchWithCache<{
+          fisher_ideal_index?: number;
+          laspeyres_index?: number;
+          index_value?: number;
+        }>(apiUrl('/api/v1/indices/today'), {
           signal: controller.signal,
+          ttlMs: 60000,
         });
 
-        if (!response.ok) {
-          throw new Error(`Index API responded with ${response.status}`);
+        const value = Number(data.fisher_ideal_index ?? data.laspeyres_index ?? data.index_value ?? 166.48);
+        if (Number.isFinite(value)) {
+          setLiveNationalIndex(value.toFixed(2));
         }
-
-        const data = await response.json();
-        const value = Number(data.fisher_ideal_index ?? data.laspeyres_index ?? data.index_value ?? 114.45);
-
-        if (!Number.isFinite(value)) {
-          throw new Error('Index API returned an invalid value');
-        }
-
-        setLiveNationalIndex(value.toFixed(2));
       } catch {
         if (!controller.signal.aborted) {
-          setLiveNationalIndex('114.45');
+          setLiveNationalIndex('166.48');
         }
       }
     };

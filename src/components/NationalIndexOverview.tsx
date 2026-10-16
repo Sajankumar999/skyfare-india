@@ -8,40 +8,54 @@ import { DgcaValidationCard } from './DgcaValidationCard';
 import { MospiBulletinModal } from './MospiBulletinModal';
 import { AirfareTrendGraph } from './AirfareTrendGraph';
 import { apiUrl } from '../config/api';
+import { getCachedData, fetchWithCache } from '../services/apiCache';
 
 export const NationalIndexOverview: React.FC = () => {
   const [isBulletinOpen, setIsBulletinOpen] = useState(false);
-  const [liveIndex, setLiveIndex] = useState({
-    fisherIdealIndex: 114.45,
-    laspeyresIndex: 114.56,
-    paascheIndex: 114.34,
-    jevonsIndex: 112.80,
-    tornqvistIndex: 114.48,
-    averageLiveFare: 0,
-    dodChangePct: 0.3,
+  const [liveIndex, setLiveIndex] = useState(() => {
+    const cached = getCachedData<Record<string, unknown>>(apiUrl('/api/v1/indices/today'));
+    if (cached && Number.isFinite(Number(cached.fisher_ideal_index))) {
+      return {
+        fisherIdealIndex: Number(cached.fisher_ideal_index),
+        laspeyresIndex: Number(cached.laspeyres_index),
+        paascheIndex: Number(cached.paasche_index ?? 166.53),
+        jevonsIndex: Number(cached.jevons_index ?? 165.20),
+        tornqvistIndex: Number(cached.tornqvist_index ?? 166.45),
+        averageLiveFare: Number(cached.average_live_fare ?? 6840),
+        dodChangePct: Number(cached.dod_change_pct ?? 0.3),
+      };
+    }
+    return {
+      fisherIdealIndex: 166.48,
+      laspeyresIndex: 166.43,
+      paascheIndex: 166.53,
+      jevonsIndex: 165.20,
+      tornqvistIndex: 166.45,
+      averageLiveFare: 6840,
+      dodChangePct: 0.3,
+    };
   });
-  const [isApiConnected, setIsApiConnected] = useState(false);
+  const [isApiConnected, setIsApiConnected] = useState(() => {
+    return Boolean(getCachedData(apiUrl('/api/v1/indices/today')));
+  });
 
   useEffect(() => {
     const controller = new AbortController();
 
     const loadLiveIndex = async () => {
       try {
-        const response = await fetch(apiUrl('/api/v1/indices/today'), {
+        const data = await fetchWithCache<Record<string, unknown>>(apiUrl('/api/v1/indices/today'), {
           signal: controller.signal,
+          ttlMs: 120000,
         });
-        if (!response.ok) {
-          throw new Error(`Index API responded with ${response.status}`);
-        }
 
-        const data = await response.json();
         const fisherIdealIndex = Number(data.fisher_ideal_index);
         const laspeyresIndex = Number(data.laspeyres_index);
-        const paascheIndex = Number(data.paasche_index ?? 114.34);
-        const jevonsIndex = Number(data.jevons_index ?? 112.80);
-        const tornqvistIndex = Number(data.tornqvist_index ?? 114.48);
-        const averageLiveFare = Number(data.average_live_fare);
-        const dodChangePct = Number(data.dod_change_pct);
+        const paascheIndex = Number(data.paasche_index ?? 166.53);
+        const jevonsIndex = Number(data.jevons_index ?? 165.20);
+        const tornqvistIndex = Number(data.tornqvist_index ?? 166.45);
+        const averageLiveFare = Number(data.average_live_fare ?? 6840);
+        const dodChangePct = Number(data.dod_change_pct ?? 0.3);
 
         if (![fisherIdealIndex, laspeyresIndex, paascheIndex, jevonsIndex, tornqvistIndex, averageLiveFare, dodChangePct].every(Number.isFinite)) {
           throw new Error('Index API returned invalid numeric values');
@@ -79,10 +93,15 @@ export const NationalIndexOverview: React.FC = () => {
               <span className="inline-flex items-center text-xs font-bold px-2.5 py-0.5 rounded-md bg-rose-100 text-rose-800 dark:bg-rose-950/80 dark:text-rose-300">
                 {liveIndex.dodChangePct >= 0 ? '+' : ''}{liveIndex.dodChangePct.toFixed(1)}% DoD
               </span>
-              {isApiConnected && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300">
+              {isApiConnected ? (
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   Live API Connected
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-800 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                  Connecting Live Feeds...
                 </span>
               )}
             </div>

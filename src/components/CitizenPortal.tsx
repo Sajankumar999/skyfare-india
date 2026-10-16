@@ -31,6 +31,7 @@ import {
 import { FlightCardData, BookingHorizon } from '../types';
 import { FareInspectionModal } from './FareInspectionModal';
 import { apiUrl } from '../config/api';
+import { fetchWithCache } from '../services/apiCache';
 
 export type TripType = 'oneWay' | 'roundTrip';
 export type ExtendedCabinClass = 'Economy' | 'Premium Economy' | 'Business' | 'First Class';
@@ -136,12 +137,11 @@ export const CitizenPortal: React.FC = () => {
         const horizonQuery = selectedHorizon === 'ALL'
           ? ''
           : `&booking_horizon=${encodeURIComponent(selectedHorizon)}`;
-        const response = await fetch(
-          `${apiUrl('/api/v1/fares/search')}?origin=${encodeURIComponent(originIata)}&destination=${encodeURIComponent(destIata)}${horizonQuery}`,
-          { signal: controller.signal }
-        );
-        if (!response.ok) throw new Error(`Fare search responded with ${response.status}`);
-        const payload: unknown = await response.json();
+        const targetUrl = `${apiUrl('/api/v1/fares/search')}?origin=${encodeURIComponent(originIata)}&destination=${encodeURIComponent(destIata)}${horizonQuery}`;
+        const payload = await fetchWithCache<unknown>(targetUrl, {
+          signal: controller.signal,
+          ttlMs: 60000,
+        });
         if (!Array.isArray(payload) || payload.length === 0) throw new Error('No live fares available');
 
         const origin = INDIAN_AIRPORTS.find((airport) => airport.iataCode === originIata);
@@ -454,10 +454,17 @@ export const CitizenPortal: React.FC = () => {
                 <span className="text-slate-400">•</span>
                 <span>{liveDateString}</span>
                 <span className="hidden sm:inline text-slate-400">•</span>
-                <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-sans font-bold text-emerald-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Live Feeds Active
-                </span>
+                {isApiConnected ? (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-sans font-bold text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Live Feeds Active
+                  </span>
+                ) : (
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-sans font-bold text-amber-300 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    Connecting Feeds...
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -842,10 +849,15 @@ export const CitizenPortal: React.FC = () => {
                 )}
               </span>
               <span className="flex items-center gap-2">
-                {isApiConnected && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                {isApiConnected ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     Live API Connected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                    Connecting Live Fares...
                   </span>
                 )}
                 <span className="hidden sm:inline">Sorted by Fair-Fare Value Score</span>

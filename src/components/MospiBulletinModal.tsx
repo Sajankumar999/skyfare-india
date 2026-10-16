@@ -1,6 +1,8 @@
 import React from 'react';
 import { Printer, Download, X, ShieldCheck, Landmark, CheckCircle2, Hash, Calendar, FileText } from 'lucide-react';
 import { HORIZON_MATRIX_DATA, TOP_MOVING_CORRIDORS, DGCA_EMPIRICAL_VALIDATION } from '../data/mockData';
+import { apiUrl } from '../config/api';
+import { getCachedData } from '../services/apiCache';
 
 interface BulletinModalProps {
   isOpen: boolean;
@@ -9,6 +11,11 @@ interface BulletinModalProps {
 
 export const MospiBulletinModal: React.FC<BulletinModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
+
+  const cachedIndex = getCachedData<Record<string, unknown>>(apiUrl('/api/v1/indices/today'));
+  const fisherVal = Number(cachedIndex?.fisher_ideal_index) || 166.48;
+  const laspeyresVal = Number(cachedIndex?.laspeyres_index) || 166.43;
+  const dodChange = Number(cachedIndex?.dod_change_pct) || 0.3;
 
   const handlePrint = () => {
     window.print();
@@ -97,13 +104,13 @@ export const MospiBulletinModal: React.FC<BulletinModalProps> = ({ isOpen, onClo
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
               <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
                 <span className="text-[10px] text-slate-500 block uppercase font-bold">Laspeyres Base Index</span>
-                <span className="font-mono text-xl font-black text-slate-900 dark:text-white">114.59</span>
-                <span className="text-[10px] text-rose-600 block font-semibold">+11.0% DoD Movement</span>
+                <span className="font-mono text-xl font-black text-slate-900 dark:text-white">{laspeyresVal.toFixed(2)}</span>
+                <span className="text-[10px] text-rose-600 block font-semibold">{dodChange >= 0 ? '+' : ''}{dodChange.toFixed(1)}% DoD Movement</span>
               </div>
 
               <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
                 <span className="text-[10px] text-slate-500 block uppercase font-bold">Fisher Superlative</span>
-                <span className="font-mono text-xl font-black text-indigo-600 dark:text-indigo-400">114.50</span>
+                <span className="font-mono text-xl font-black text-indigo-600 dark:text-indigo-400">{fisherVal.toFixed(2)}</span>
                 <span className="text-[10px] text-slate-500 block">Substitution Neutral</span>
               </div>
 
