@@ -3,12 +3,12 @@ name: SkyFare India - 3x Daily Automated Flight Ingestion & Index Pipeline
 on:
   schedule:
     # 3x Daily Multi-Horizon Ingestion across all 14 DGCA Corridors (T+1, T+7, T+15, T+30, T+45):
-    # 05:00 UTC = 10:30 AM IST (Morning Shift)
-    - cron: '0 5 * * *'
-    # 10:00 UTC = 03:30 PM IST (Afternoon Shift)
-    - cron: '0 10 * * *'
-    # 17:00 UTC = 10:30 PM IST (Night Shift & EOD Fisher Ideal National Index Calculation)
-    - cron: '0 17 * * *'
+    # 05:15 UTC = 10:45 AM IST (Morning Shift - avoids :00 top-of-hour queue throttling)
+    - cron: '15 5 * * *'
+    # 10:15 UTC = 03:45 PM IST (Afternoon Shift)
+    - cron: '15 10 * * *'
+    # 17:15 UTC = 10:45 PM IST (Night Shift & EOD Fisher Ideal National Index Calculation)
+    - cron: '15 17 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI anytime
 
 concurrency:
