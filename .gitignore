@@ -17,12 +17,12 @@ api_keys_registry.json
 *.pem
 *.key
 
-# Local SQLite databases & backups (Production uses cloud Supabase PostgreSQL)
+# Local SQLite databases & backups (Production seed uses authentic skyfare_live.db)
 *.db
 *.db-journal
 *.sqlite
 *.sqlite3
-skyfare_live.db
+!skyfare_live.db
 skyfare_scrapling.db
 backups/
 
