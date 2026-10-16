@@ -117,7 +117,15 @@ export const RealGoogleMapView: React.FC<RealGoogleMapViewProps> = ({
 
       const isSelected = corridor.routeCode === activeCorridorCode;
       const isSurge = corridor.changePct >= 15;
-      const color = isSurge ? '#ef4444' : corridor.changePct >= 5 ? '#f97316' : '#10b981';
+      const color = isSelected
+        ? '#0284c7'
+        : isSurge
+        ? '#ef4444'
+        : corridor.changePct >= 5
+        ? '#f97316'
+        : corridor.changePct < 0
+        ? '#10b981'
+        : '#3b82f6';
 
       // Compute curved bezier points
       const points: [number, number][] = [];
@@ -143,8 +151,8 @@ export const RealGoogleMapView: React.FC<RealGoogleMapViewProps> = ({
       if (isSelected) {
         L.polyline(points, {
           color: '#38bdf8',
-          weight: 6,
-          opacity: 0.45,
+          weight: 9,
+          opacity: 0.65,
           lineCap: 'round',
         }).addTo(layerGroup);
       }
@@ -152,10 +160,14 @@ export const RealGoogleMapView: React.FC<RealGoogleMapViewProps> = ({
       // Interactive Polyline
       const poly = L.polyline(points, {
         color: color,
-        weight: isSelected ? 4 : isSurge ? 3 : 2,
+        weight: isSelected ? 5 : isSurge ? 3.5 : 2.5,
         opacity: isSelected ? 1 : 0.85,
-        dashArray: isSurge ? '6, 4' : undefined,
+        dashArray: !isSelected && isSurge ? '6, 4' : undefined,
       }).addTo(layerGroup);
+
+      if (isSelected) {
+        poly.bringToFront();
+      }
 
       poly.on('click', () => {
         onSelectCorridor(corridor);
