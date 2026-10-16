@@ -68,10 +68,6 @@ export default function App() {
   useEffect(() => {
     const savedToken = sessionStorage.getItem('skyfare_admin_token');
     if (savedToken) {
-      if (savedToken === 'mock-demo-session-token') {
-        setIsAdminLoggedIn(true);
-        return;
-      }
       fetch(apiUrl('/api/v1/auth/verify'), {
         headers: { 'X-Admin-Token': savedToken },
       })
@@ -84,8 +80,8 @@ export default function App() {
           }
         })
         .catch(() => {
-          // If backend offline, retain session
-          setIsAdminLoggedIn(true);
+          sessionStorage.removeItem('skyfare_admin_token');
+          setIsAdminLoggedIn(false);
         });
     }
   }, []);

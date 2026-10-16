@@ -91,7 +91,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialSubSectio
           signal: controller.signal,
           headers: {
             'X-Admin-Token': token,
-            'X-Admin-Key': 'skyfare_adm_live_key_2026',
           },
         });
         if (!response.ok) throw new Error(`Worker status responded with ${response.status}`);
@@ -203,7 +202,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialSubSectio
         method: 'POST',
         headers: {
           'X-Admin-Token': token,
-          'X-Admin-Key': 'skyfare_adm_live_key_2026',
         },
       });
       if (!response.ok) throw new Error(`Worker trigger responded with ${response.status}`);

@@ -24,8 +24,8 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   onClose,
   onLoginSuccess,
 }) => {
-  const [email, setEmail] = useState('mospi.officer@gov.in');
-  const [password, setPassword] = useState('MoSPI-Admin-2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,24 +51,16 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
       }
 
       const data = (await response.json()) as { token?: string };
+      if (!data.token) {
+        throw new Error('Server did not return a valid session token.');
+      }
       onLoginSuccess(data.token);
       onClose();
     } catch (err) {
-      // Standalone offline demo mode fallback
-      if (email.trim() && password === 'MoSPI-Admin-2026') {
-        onLoginSuccess('mock-demo-session-token');
-        onClose();
-      } else {
-        setError(err instanceof Error ? err.message : 'Invalid official MoSPI credentials.');
-      }
+      setError(err instanceof Error ? err.message : 'Invalid official MoSPI credentials.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickDemoFill = () => {
-    setEmail('mospi.officer@gov.in');
-    setPassword('MoSPI-Admin-2026');
   };
 
   return (
@@ -134,6 +126,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 id="admin-email-input"
                 type="email"
                 required
+                autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="officer.name@nic.in"
@@ -152,24 +145,13 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 id="admin-password-input"
                 type="password"
                 required
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                placeholder="Enter confidential passphrase"
                 className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2.5 font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:outline-hidden"
               />
             </div>
-          </div>
-
-          {/* Demo fill chip */}
-          <div className="flex items-center justify-between text-[11px] pt-1">
-            <span className="text-slate-500">Official Evaluator Demo:</span>
-            <button
-              type="button"
-              onClick={handleQuickDemoFill}
-              className="text-blue-600 hover:underline dark:text-blue-400 font-semibold"
-            >
-              Fill Demo Credentials
-            </button>
           </div>
 
           {/* Submit Button */}
