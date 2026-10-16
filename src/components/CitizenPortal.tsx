@@ -27,6 +27,9 @@ import {
   AIRLINES,
   MOCK_FLIGHTS,
   getFlightsForRoute,
+  isCorridorCovered,
+  getValidOrigins,
+  getValidDestinationsForOrigin,
 } from '../data/mockData';
 import { FlightCardData, BookingHorizon } from '../types';
 import { FareInspectionModal } from './FareInspectionModal';
@@ -73,6 +76,9 @@ export const CitizenPortal: React.FC = () => {
   const [destIata, setDestIata] = useState<string>('BOM');
   const [departureDate, setDepartureDate] = useState<string>(() => getTodayDateString());
   const [selectedHorizon, setSelectedHorizon] = useState<BookingHorizon | 'ALL'>('ALL');
+  const [liveFlights, setLiveFlights] = useState<FlightCardData[] | null>(null);
+  const [isApiConnected, setIsApiConnected] = useState<boolean>(false);
+  const [isLoadingFares, setIsLoadingFares] = useState<boolean>(false);
 
   // Smart 2-way sync between calendar date and surveillance horizon
   const handleDateChange = (newDateStr: string) => {
@@ -131,8 +137,15 @@ export const CitizenPortal: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (!isCorridorCovered(originIata, destIata)) {
+      setLiveFlights([]);
+      setIsLoadingFares(false);
+      return;
+    }
+
     const controller = new AbortController();
     const loadLiveFares = async () => {
+      setIsLoadingFares(true);
       try {
         const horizonQuery = selectedHorizon === 'ALL'
           ? ''
@@ -142,11 +155,18 @@ export const CitizenPortal: React.FC = () => {
           signal: controller.signal,
           ttlMs: 60000,
         });
-        if (!Array.isArray(payload) || payload.length === 0) throw new Error('No live fares available');
+        if (!Array.isArray(payload)) throw new Error('Invalid live fares response');
+
+        setIsApiConnected(true);
 
         const origin = INDIAN_AIRPORTS.find((airport) => airport.iataCode === originIata);
         const destination = INDIAN_AIRPORTS.find((airport) => airport.iataCode === destIata);
         if (!origin || !destination) throw new Error('Unknown airport');
+
+        if (payload.length === 0) {
+          setLiveFlights([]);
+          return;
+        }
 
         const mapped = payload.flatMap((quote, idx): FlightCardData[] => {
           if (typeof quote !== 'object' || quote === null) return [];
@@ -311,13 +331,15 @@ export const CitizenPortal: React.FC = () => {
             sourcePlatform: (typeof item.source_platform === 'string' && item.source_platform) ? item.source_platform : 'google_flights',
           }];
         });
-        if (mapped.length === 0) throw new Error('No valid live fares returned');
         setLiveFlights(mapped);
-        setIsApiConnected(true);
       } catch (error) {
         if (!controller.signal.aborted) {
           setLiveFlights(null);
           setIsApiConnected(false);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingFares(false);
         }
       }
     };
@@ -331,8 +353,6 @@ export const CitizenPortal: React.FC = () => {
   const [nonstopOnly, setNonstopOnly] = useState<boolean>(true);
   const [sortBy, setSortBy] = useState<SortOption>('price_asc');
   const [expandedFareFlightId, setExpandedFareFlightId] = useState<string | null>(null);
-  const [liveFlights, setLiveFlights] = useState<FlightCardData[] | null>(null);
-  const [isApiConnected, setIsApiConnected] = useState(false);
 
   // Inspection Modal state (Replacing booking functionality)
   const [inspectingFlight, setInspectingFlight] = useState<FlightCardData | null>(null);
@@ -365,8 +385,31 @@ export const CitizenPortal: React.FC = () => {
     return hours * 60 + mins;
   };
 
+  // Valid origins (airports that have monitored outgoing corridors)
+  const validOrigins = useMemo(() => getValidOrigins(), []);
+
+  // Valid destinations for the currently selected origin
+  const validDestinations = useMemo(() => {
+    return getValidDestinationsForOrigin(originIata);
+  }, [originIata]);
+
+  // Handle origin change with smart destination auto-alignment
+  const handleOriginChange = (newOrigin: string) => {
+    setOriginIata(newOrigin);
+    const validDests = getValidDestinationsForOrigin(newOrigin);
+    if (!validDests.some((d) => d.iataCode === destIata)) {
+      if (validDests.length > 0) {
+        setDestIata(validDests[0].iataCode);
+      }
+    }
+  };
+
+  // Check if reverse route is covered for swap button
+  const canSwap = isCorridorCovered(destIata, originIata);
+
   // Swap origin and destination
   const handleSwapCities = () => {
+    if (!canSwap) return;
     const temp = originIata;
     setOriginIata(destIata);
     setDestIata(temp);
@@ -381,7 +424,13 @@ export const CitizenPortal: React.FC = () => {
 
   // Filter & Sort flights using route-aware quotes
   const filteredFlights = useMemo(() => {
-    const routeFlights = liveFlights ?? getFlightsForRoute(originIata, destIata);
+    if (!isCorridorCovered(originIata, destIata)) {
+      return [];
+    }
+
+    const routeFlights = (liveFlights !== null && liveFlights.length > 0)
+      ? liveFlights
+      : (liveFlights === null ? getFlightsForRoute(originIata, destIata) : []);
 
     const matches = routeFlights.filter((flight) => {
       // Airline filter
@@ -525,10 +574,10 @@ export const CitizenPortal: React.FC = () => {
                   <select
                     id="search-origin-select"
                     value={originIata}
-                    onChange={(e) => setOriginIata(e.target.value)}
+                    onChange={(e) => handleOriginChange(e.target.value)}
                     className="w-full appearance-none bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition-all pr-8 cursor-pointer shadow-2xs"
                   >
-                    {INDIAN_AIRPORTS.map((airport) => (
+                    {validOrigins.map((airport) => (
                       <option key={airport.iataCode} value={airport.iataCode}>
                         {airport.city} ({airport.iataCode}) — {airport.name.slice(0, 24)}
                       </option>
@@ -544,9 +593,14 @@ export const CitizenPortal: React.FC = () => {
                   id="btn-swap-cities"
                   type="button"
                   onClick={handleSwapCities}
+                  disabled={!canSwap}
                   aria-label="Swap cities"
-                  title="Swap Origin and Destination"
-                  className="p-2.5 rounded-full bg-slate-100 hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all border border-slate-200 dark:border-slate-700 shadow-2xs hover:scale-105 active:scale-95 cursor-pointer"
+                  title={canSwap ? "Swap Origin and Destination" : `Reverse corridor (${destIata} → ${originIata}) is not monitored under 14 DGCA trunks`}
+                  className={`p-2.5 rounded-full transition-all border shadow-2xs cursor-pointer ${
+                    canSwap
+                      ? 'bg-slate-100 hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:scale-105 active:scale-95'
+                      : 'opacity-40 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}
                 >
                   <ArrowRightLeft className="w-4 h-4" />
                 </button>
@@ -567,7 +621,7 @@ export const CitizenPortal: React.FC = () => {
                     onChange={(e) => setDestIata(e.target.value)}
                     className="w-full appearance-none bg-slate-50 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden transition-all pr-8 cursor-pointer shadow-2xs"
                   >
-                    {INDIAN_AIRPORTS.map((airport) => (
+                    {validDestinations.map((airport) => (
                       <option key={airport.iataCode} value={airport.iataCode}>
                         {airport.city} ({airport.iataCode}) — {airport.name.slice(0, 24)}
                       </option>
@@ -651,10 +705,17 @@ export const CitizenPortal: React.FC = () => {
                   { o: 'DEL', d: 'BOM', label: 'DEL ↔ BOM' },
                   { o: 'BOM', d: 'DEL', label: 'BOM ↔ DEL' },
                   { o: 'DEL', d: 'BLR', label: 'DEL ↔ BLR' },
-                  { o: 'BOM', d: 'GOI', label: 'BOM ↔ GOI' },
-                  { o: 'DEL', d: 'HYD', label: 'DEL ↔ HYD' },
+                  { o: 'BLR', d: 'DEL', label: 'BLR ↔ DEL' },
+                  { o: 'BOM', d: 'BLR', label: 'BOM ↔ BLR' },
+                  { o: 'BLR', d: 'BOM', label: 'BLR ↔ BOM' },
                   { o: 'DEL', d: 'CCU', label: 'DEL ↔ CCU' },
-                  { o: 'CCU', d: 'BOM', label: 'CCU ↔ BOM' },
+                  { o: 'CCU', d: 'DEL', label: 'CCU ↔ DEL' },
+                  { o: 'DEL', d: 'HYD', label: 'DEL ↔ HYD' },
+                  { o: 'HYD', d: 'DEL', label: 'HYD ↔ DEL' },
+                  { o: 'DEL', d: 'MAA', label: 'DEL ↔ MAA' },
+                  { o: 'MAA', d: 'DEL', label: 'MAA ↔ DEL' },
+                  { o: 'CCU', d: 'BOM', label: 'CCU → BOM' },
+                  { o: 'BOM', d: 'GOI', label: 'BOM → GOI' },
                 ].map((corridor) => {
                   const isSelected = originIata === corridor.o && destIata === corridor.d;
                   return (
@@ -849,15 +910,20 @@ export const CitizenPortal: React.FC = () => {
                 )}
               </span>
               <span className="flex items-center gap-2">
-                {isApiConnected ? (
-                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Live API Connected
-                  </span>
-                ) : (
+                {isLoadingFares ? (
                   <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
-                    Connecting Live Fares...
+                    Fetching Live Quotes...
+                  </span>
+                ) : isApiConnected ? (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Live API Connected {liveFlights ? `(${liveFlights.length} Quotes)` : ''}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    DGCA Benchmark Feed
                   </span>
                 )}
                 <span className="hidden sm:inline">Sorted by Fair-Fare Value Score</span>

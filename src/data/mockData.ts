@@ -23,6 +23,47 @@ export const INDIAN_AIRPORTS: Airport[] = [
   { id: 7, iataCode: 'GOI', name: 'Dabolim / Manohar International Airport', city: 'Goa', state: 'Goa', metroTier: 'Tier-2', coordinates: { x: 232.0, y: 735.0, lat: 15.3808, lng: 73.8314 } },
 ];
 
+export const MONITORED_CORRIDORS = [
+  'DEL-BOM',
+  'BOM-DEL',
+  'DEL-BLR',
+  'BLR-DEL',
+  'BOM-BLR',
+  'BLR-BOM',
+  'DEL-CCU',
+  'CCU-DEL',
+  'DEL-HYD',
+  'HYD-DEL',
+  'MAA-DEL',
+  'DEL-MAA',
+  'CCU-BOM',
+  'BOM-GOI',
+] as const;
+
+export type MonitoredCorridorCode = (typeof MONITORED_CORRIDORS)[number];
+
+export const CORRIDOR_DESTINATIONS: Record<string, string[]> = {
+  DEL: ['BOM', 'BLR', 'CCU', 'HYD', 'MAA'],
+  BOM: ['DEL', 'BLR', 'GOI'],
+  BLR: ['DEL', 'BOM'],
+  CCU: ['DEL', 'BOM'],
+  HYD: ['DEL'],
+  MAA: ['DEL'],
+};
+
+export function isCorridorCovered(origin: string, dest: string): boolean {
+  return MONITORED_CORRIDORS.includes(`${origin}-${dest}` as MonitoredCorridorCode);
+}
+
+export function getValidOrigins(): Airport[] {
+  return INDIAN_AIRPORTS.filter((a) => (CORRIDOR_DESTINATIONS[a.iataCode]?.length ?? 0) > 0);
+}
+
+export function getValidDestinationsForOrigin(originCode: string): Airport[] {
+  const dests = CORRIDOR_DESTINATIONS[originCode] || [];
+  return INDIAN_AIRPORTS.filter((a) => dests.includes(a.iataCode));
+}
+
 export const AIRLINES: Airline[] = [
   { id: 1, iataCode: '6E', name: 'IndiGo', model: 'LCC', marketSharePct: 62.4, color: '#0B3B60', bgLight: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800' },
   { id: 2, iataCode: 'AI', name: 'Air India', model: 'FSC', marketSharePct: 27.1, color: '#D91B24', bgLight: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800' },
@@ -761,6 +802,11 @@ export const MOCK_FLIGHTS: FlightCardData[] = [
  * so users can freely explore any domestic pair.
  */
 export function getFlightsForRoute(originCode: string, destCode: string): FlightCardData[] {
+  // Disallow identical airport combinations (e.g. CCU-CCU, GOI-GOI) or unmonitored routes
+  if (originCode === destCode || !isCorridorCovered(originCode, destCode)) {
+    return [];
+  }
+
   // Check for exact route matches in the curated list
   const exactMatches = MOCK_FLIGHTS.filter(
     (f) => f.originAirport.iataCode === originCode && f.destinationAirport.iataCode === destCode
