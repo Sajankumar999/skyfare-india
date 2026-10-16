@@ -46,7 +46,7 @@ init_db()
 
 configured_cors_origins = os.environ.get(
     "SKYFARE_CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173",
+    "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://skyfare-india.vercel.app",
 )
 allowed_cors_origins = [
     origin.strip()
@@ -57,11 +57,12 @@ allowed_cors_origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_cors_origins,
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 @app.middleware("http")

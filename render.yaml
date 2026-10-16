@@ -1,10 +1,13 @@
 services:
   - type: web
     name: skyfare-india-api
-    runtime: python
+    env: python
+    region: singapore
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    healthCheckPath: /api/v1/health
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
       - key: SKYFARE_CORS_ORIGINS
-        sync: false
+        value: https://skyfare-india.vercel.app,http://localhost:3000
