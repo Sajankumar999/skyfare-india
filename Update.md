@@ -261,6 +261,43 @@
 
 ---
 
+## 💡 Proactive Architecture, Security & Feature Recommendations Backlog
+
+> **INDEPENDENT AGENT DIRECTIVE**:
+> In accordance with user directives, agents actively record and update high-impact recommendations, security enhancements, and prospective architectural improvements here as they are discovered, ensuring continuous innovation even outside direct conversational tasks.
+
+### 🛡️ Category A: Perimeter Security & Threat Defense
+- [ ] **1. Strict Content Security Policy (CSP) on Vercel CDN**:
+  - *Recommendation*: Add a declarative `Content-Security-Policy` header in [`vercel.json`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/vercel.json) restricting script sources, frame ancestors, and object sources (`default-src 'self'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://skyfare-india-api.onrender.com https://*.supabase.co https://maps.googleapis.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`).
+  - *Impact*: Defends against cross-site scripting (XSS), malicious third-party script injection, and unauthorized data exfiltration.
+
+- [ ] **2. Persistent Distributed Rate Limiting on FastAPI**:
+  - *Recommendation*: Upgrade in-memory `SlidingWindowRateLimiter` in [`main.py`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/main.py) with an optional Redis or SQLite-backed token bucket store.
+  - *Impact*: Prevents rate-limit counter resets during Render container scale-up or automated deploys, ensuring resilient anti-scraping and DDoS protection for public `/api/v1/*` endpoints.
+
+- [ ] **3. Automated Dependency & CVE Scanning in CI/CD**:
+  - *Recommendation*: Add a GitHub Actions security workflow running `pip-audit` for Python dependencies and `npm audit` for Node packages weekly.
+  - *Impact*: Proactively detects vulnerabilities in upstream dependencies before they impact production.
+
+### ⚙️ Category B: Data Pipeline & Reliability
+- [ ] **4. Scrapling Anti-Bot Canary & Automatic Fallback Alarm**:
+  - *Recommendation*: In [`batch_fetch_real_data.py`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/batch_fetch_real_data.py), execute a lightweight pre-flight canary probe against Google Flights / MakeMyTrip before the full batch runs. If Scrapling receives HTTP 403 or Cloudflare challenge pages, immediately alert and automatically fall back to SerpApi for that shift.
+  - *Impact*: Provides automated early warning and zero data loss if OTA web structures change.
+
+- [ ] **5. Periodic Database Integrity & WAL Maintenance**:
+  - *Recommendation*: Add a weekly maintenance task in [`database.py`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/database.py) executing `PRAGMA incremental_vacuum` and `PRAGMA integrity_check`.
+  - *Impact*: Prevents SQLite fragmentation and ensures index B-trees remain optimally packed over months of continuous high-frequency collection.
+
+### 📊 Category C: Governance & Regulatory Intelligence
+- [ ] **6. One-Click MoSPI/DGCA Branded Audit Dossier Export (PDF/Excel)**:
+  - *Recommendation*: Add a client-side or backend PDF/Excel report generator allowing statistical officers to download an official stamped daily dossier containing Laspeyres/Paasche/Fisher calculations, corridor tariff spreads, and Rule 135 watchlist items.
+  - *Impact*: Replaces manual screenshot taking during regulatory audits and government presentations.
+
+- [ ] **7. PWA (Progressive Web App) Offline Installation Support**:
+  - *Recommendation*: Add a web app manifest and lightweight service worker caching app shell assets in `index.html`.
+  - *Impact*: Enables civil aviation researchers and government analysts to install SkyFare India directly as a standalone app on desktop, iPad, or Android devices.
+
+---
 
 ## 📦 Completed Tasks Archive (Audited in README.md)
 
