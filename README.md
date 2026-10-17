@@ -7,23 +7,23 @@
 [![React 19](https://img.shields.io/badge/Frontend-React%2019%20%7C%20Vite%20%7C%20TailwindCSS-61DAFB.svg)](https://react.dev)
 [![Vercel Live](https://img.shields.io/badge/Vercel-Production%20Live-black.svg?logo=vercel)](https://skyfare-india.vercel.app)
 [![Render Backend](https://img.shields.io/badge/Render-FastAPI%20Active-46E3B7.svg?logo=render)](https://render.com)
-[![Supabase DB](https://img.shields.io/badge/Supabase-42%2C945%2B%20Quotes-3ECF8E.svg?logo=supabase)](https://supabase.com)
-[![GitHub Actions Cron](https://img.shields.io/badge/GitHub%20Actions-3x%20Daily%20Cron-2088FF.svg?logo=githubactions)](https://github.com/Sajankumar999/skyfare-india/actions)
-[![Automated Tests](https://img.shields.io/badge/Tests-54%2F54%20Passing-success.svg)]()
+[![Supabase DB](https://img.shields.io/badge/Supabase-46%2C900%2B%20Quotes-3ECF8E.svg?logo=supabase)](https://supabase.com)
+[![GitHub Actions Cron](https://img.shields.io/badge/GitHub%20Actions-4x%20Daily%20Cron-2088FF.svg?logo=githubactions)](https://github.com/Sajankumar999/skyfare-india/actions)
+[![Automated Tests](https://img.shields.io/badge/Tests-57%2F57%20Passing-success.svg)]()
 
 ---
 
 ## 🌐 Live Production Deployment
 
 > **Official Live Platform URL**: **[`https://skyfare-india.vercel.app/`](https://skyfare-india.vercel.app/)**  
-> **Current Superlative Fisher Ideal Index**: **`166.48`** ($L=166.43, P=166.53$) | **Average Live Fare**: **`₹9,784.52`**  
-> **Cumulative Empirical Microdata**: **`42,945 Quotes`** across 23 continuous post-epoch days (`2026-09-24` to `2026-10-16`) across all 14 DGCA trunk corridors.
+> **Current Superlative Fisher Ideal Index**: **`165.65`** ($L=165.60, P=165.69$) | **Average Live Fare**: **`₹9,721.17`**  
+> **Cumulative Empirical Microdata**: **`46,902 Quotes`** across 24 continuous post-epoch days (`2026-09-24` to `2026-10-17`) across all 14 DGCA trunk corridors.
 
 The platform operates on a resilient **4-tier autonomous cloud architecture**:
-1. **Automated Harvesting**: **GitHub Actions** runs 3x daily (`05:15`, `10:15`, `17:15` UTC) executing dual-engine ingestion (`batch_fetch_real_data.py --shift all --engine dual`) via Scrapling stealth and SerpApi failover.
-2. **Permanent Data Vault**: **Supabase Managed Cloud PostgreSQL** securely retains all 42,945+ price observations, quarantine audit trails, and SHA-256 Merkle root batch hashes.
+1. **Automated Harvesting**: **GitHub Actions** runs **4x daily** (`05:50 AM`, `11:10 AM`, `04:50 PM`, `10:10 PM` IST) executing tiered multi-horizon ingestion (`batch_fetch_real_data.py --shift auto --engine dual`). Designed with a **3-hour runner queue delay absorption buffer** guaranteeing $\ge 3$ complete runs every day, paired with strict SerpApi quota preservation (98 queries/day across 14 teammate keys) and full Scrapling multi-OTA coverage ($0 cost).
+2. **Permanent Data Vault**: **Supabase Managed Cloud PostgreSQL** securely retains all 46,900+ price observations, quarantine audit trails, and SHA-256 Merkle root batch hashes.
 3. **Econometric Brain & REST API**: **Render Cloud Web Service** runs the Python 3.12 FastAPI backend (`main.py`), calculating real-time Laspeyres, Paasche, Fisher, Jevons, and Törnqvist indices with DGCA passenger weights.
-4. **Global Edge CDN UI**: **Vercel** hosts the React 19 Single Page Application, delivering instant $<1\text{s}$ responsive access with client-side routing and dark/light adaptive styling.
+4. **Global Edge CDN UI**: **Vercel** hosts the React 19 Single Page Application with client-side `sessionStorage` caching (<50ms tab switches), dynamic cold-start alerts, and 14-corridor route locking.
 
 
 ## 🎯 Executive Summary & SIH Problem Statement
@@ -458,6 +458,18 @@ python batch_fetch_real_data.py
       - *Secondary Sovereign Fallback*: Deterministic Econometric Knowledge Synthesizer (`generate_econometric_chat_response()`) performing directional corridor parsing (e.g. `DEL-BOM` vs `BOM-DEL`), carrier analytics, horizon yield curve analysis, and regulatory logic without external API latency.
     - **Security & Rate Limiting**: Protected with in-memory `SlidingWindowRateLimiter` (40 req/min) to prevent abuse and denial of service.
     - **Interactive Frontend Experience**: Enhanced `PolicyChatbotView.tsx` with animated typing thinking states, dynamic route metric cards displaying live spot fares, 7-day baselines, and RPK weights, and live grounding source badges (`Live Gemini 2.5 Flash Grounded` vs `Sovereign Econometric Engine`). Added 5 comprehensive automated tests in `tests/test_chat.py` (54/54 tests pass).
+30. **4x Daily Automated Ingestion, Runner Delay Absorption & Strict SerpApi Quota Architecture (`2026-10-17`)**:
+    - **Queue-Delay Resilient 4-Shift Schedule**: Shifted GitHub Actions from 3x to 4x daily triggers with non-standard minutes (`00:20`, `05:40`, `11:20`, `16:40` UTC $\to$ `05:50 AM`, `11:10 AM`, `04:50 PM`, `10:10 PM` IST). Engineered 5.5 to 7.5-hour spacing buffers absorbing up to 3 hours of runner queue delay and guaranteeing $\ge 3$ complete runs every 24 hours.
+    - **Strict SerpApi Quota Preservation (98 Calls/Day Total)**: Eliminated API credit exhaustion by capping SerpApi daytime calls:
+      - *Morning (Shift 1)*: Spot & peak surge surveillance ($T+1, T+7$ only $\to$ 28 calls).
+      - *Midday & Evening (Shifts 2 & 3)*: Sleeping/OFF (0 calls), preserving monthly quota while Scrapling harvests all 5 horizons across 14 corridors at $0 cost.
+      - *Night (Shift 4)*: Full 5-horizon sweep ($T+1..T+45$ $\to$ 70 calls) to anchor the official EOD Fisher Ideal National Index.
+      - *Total Quota*: 98 queries/day ($\approx 210$ queries/month per key across 14 teammate keys).
+    - **Anti-Block Insurance**: Guarantees that even if OTAs adjust anti-scraping defenses, SerpApi refreshes every corridor and booking horizon daily.
+    - **Airport Dropdown Corridor Restriction**: Locked origin and destination selection strictly to the 14 monitored DGCA corridors, eliminating invalid combinations (e.g. CCU-CCU, GOI-GOI, CCU-BLR) and stopping perpetual live loading hangs.
+    - **Instant Client-Side Cache (<50ms Tab Transitions)**: Added `sessionStorage` caching and dynamic cold-start alerts for zero-latency tab switching.
+    - **Hardened Admin Auth & Edge Headers**: Removed hardcoded credentials and client bypasses; enforced Vercel security headers (`nosniff`, `SAMEORIGIN`, `strict-origin-when-cross-origin`).
+    - **Test Suite Expansion**: Added `tests/test_batch_shifts.py` with 57/57 tests passing.
 
 ---
 

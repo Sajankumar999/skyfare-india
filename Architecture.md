@@ -3,8 +3,10 @@
 
 * **System Name**: SkyFare India Architecture & Flow Blueprint
 * **Architecture Pattern**: 4-Tier Sovereign Cloud Mesh (GitHub Actions Ingestion $\rightarrow$ Supabase PostgreSQL Vault $\rightarrow$ Render FastAPI Microservice $\rightarrow$ Vercel React 19 Edge CDN)
-* **Version**: `2.0.0 (Production Live)`
-* **Last Updated**: `2026-10-16`
+* **System Name**: SkyFare India Architecture & Flow Blueprint
+* **Architecture Pattern**: 4-Tier Sovereign Cloud Mesh (GitHub Actions Ingestion $\rightarrow$ Supabase PostgreSQL Vault $\rightarrow$ Render FastAPI Microservice $\rightarrow$ Vercel React 19 Edge CDN)
+* **Version**: `2.1.0 (Production Live)`
+* **Last Updated**: `2026-10-17`
 * **Production Frontend**: `https://skyfare-india.vercel.app/`
 * **Production Backend API**: `https://skyfare-india-api.onrender.com`
 * **Sovereign Database**: Supabase PostgreSQL (`lrgskbmrgtmcybqabrze.supabase.co`) & SQLite WAL replica (`skyfare_live.db`)
@@ -18,22 +20,22 @@ SkyFare India operates across a sovereign 4-tier decoupled cloud infrastructure 
 ```mermaid
 graph TD
     subgraph TIER1 ["Tier 1: Sovereign Data Harvesting (GitHub Actions)"]
-        GHA["GitHub Actions Cron<br/>(3x Daily: 05:15, 10:15, 17:15 UTC)"]
-        SCRAP["Scrapling / SerpApi Ingestion Engine<br/>(14 DGCA Corridors × 5 Horizons)"]
+        GHA["GitHub Actions Cron (4x Daily: 05:50, 11:10, 16:50, 22:10 IST)<br/>3-Hour Runner Queue Delay Absorption Buffer"]
+        TIERED["Tiered Engine Orchestrator (batch_fetch_real_data.py)<br/>• Scrapling: All 5 Horizons (T+1..T+45) on All 4 Shifts ($0 cost)<br/>• SerpApi: Morning T+1/T+7 | Midday & Evening OFF | Night All 5 (98 calls/day)"]
         TUK["Tukey IQR Outlier Engine<br/>[₹1,200 – ₹45,000 Bounds]"]
-        GHA --> SCRAP --> TUK
+        GHA --> TIERED --> TUK
     end
 
     subgraph TIER2 ["Tier 2: Cloud Data Vault (Supabase PostgreSQL)"]
-        SUPA[("Supabase PostgreSQL Cloud Vault<br/>(42,945+ Verified Quotes)")]
-        SQLITE[("Local/Edge SQLite WAL Replica<br/>(skyfare_live.db, 5.7 MB)")]
+        SUPA[("Supabase PostgreSQL Cloud Vault<br/>(46,900+ Verified Quotes)")]
+        SQLITE[("Local/Edge SQLite WAL Replica<br/>(skyfare_live.db, 5.8 MB)")]
         TUK -->|Push Batch| SUPA
         SUPA -.->|Auto-Hydrate / Sync| SQLITE
     end
 
     subgraph TIER3 ["Tier 3: Econometric Compute & API (Render FastAPI)"]
         RENDER["Render Web Service<br/>(https://skyfare-india-api.onrender.com)"]
-        ENG["Econometric Engine (index_engine.py)<br/>Fisher Ideal (166.48) + Jevons + Törnqvist"]
+        ENG["Econometric Engine (index_engine.py)<br/>Fisher Ideal (165.65) + Jevons + Törnqvist"]
         CORS["CORS Gatekeeper (*.vercel.app + localhost)"]
         SQLITE & SUPA --> RENDER
         RENDER --> ENG --> CORS
@@ -42,9 +44,10 @@ graph TD
     subgraph TIER4 ["Tier 4: Global Edge Presentation (Vercel CDN)"]
         VERCEL["Vercel Global Edge CDN<br/>(https://skyfare-india.vercel.app/)"]
         REACT["React 19 + TypeScript + Tailwind CSS v4"]
-        VIEWS["1. MoSPI Command Center<br/>2. Citizen Fair-Fare Portal<br/>3. DGCA Rule 135 Watchdog<br/>4. AI Econometric Guide"]
+        CACHE["Instant Client-Side Cache Layer (sessionStorage & Cold-Start Banner)"]
+        VIEWS["1. MoSPI Command Center<br/>2. Citizen Fair-Fare Portal (14 Corridors)<br/>3. DGCA Rule 135 Watchdog<br/>4. AI Econometric Guide"]
         CORS -->|JSON REST Streams| VERCEL
-        VERCEL --> REACT --> VIEWS
+        VERCEL --> CACHE --> REACT --> VIEWS
     end
 ```
 
@@ -105,33 +108,32 @@ graph TD
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Scheduler as GitHub Actions Cron (3x Daily)
-    participant Batch as batch_fetch_real_data.py / Scrapling
-    participant Registry as api_keys_registry.json (14 Keys)
-    participant SerpApi as SerpApi / Direct Metasearch
+    actor Scheduler as GitHub Actions Cron (4x Daily)
+    participant Batch as batch_fetch_real_data.py
+    participant Scrapling as Scrapling Stealth (All 4 Shifts, All 5 Horizons)
+    participant SerpApi as SerpApi Quota Engine (Morning T+1/T+7, Night All 5)
     participant Cleaner as Tukey IQR & Quarantine Engine
     participant Supa as Supabase PostgreSQL Vault
     participant DB as SQLite WAL (skyfare_live.db)
     participant Engine as index_engine.py
     participant API as Render FastAPI Backend
 
-    Scheduler->>Batch: Automated Trigger (05:15, 10:15, 17:15 UTC)
-    Batch->>Registry: Lookup Corridor Key (14 Dedicated Routes)
-    Batch->>SerpApi: Fetch Live Quotes (T+1, T+7, T+15, T+30, T+45)
-    alt Key Quota / 429 Error
-        SerpApi-->>Batch: HTTP 429 Quota Exceeded
-        Batch->>Registry: Log Alert for Teammate Owner
-        Batch->>Registry: Fallback to SERPAPI_TEST_KEY (0519...aa8d)
-        Batch->>SerpApi: Retry with Staging Fallback Key
+    Scheduler->>Batch: Automated Trigger (00:20, 05:40, 11:20, 16:40 UTC with delay absorption)
+    Batch->>Scrapling: Scrape All 14 Corridors across All 5 Horizons ($0 cost)
+    alt Morning Shift (05:50 AM IST)
+        Batch->>SerpApi: Spot & Peak Surge Sweep (T+1 & T+7 only -> 28 calls)
+    else Midday & Evening Shifts (11:10 AM & 04:50 PM IST)
+        Batch->>SerpApi: Sleep / OFF (0 calls -> preserve quota)
+    else Night Shift (10:10 PM IST)
+        Batch->>SerpApi: Official EOD Multi-Horizon Sweep (All 5 Horizons -> 70 calls)
     end
-    SerpApi-->>Batch: Raw Domestic Flight Quotes
     Batch->>Cleaner: Parse Statutory Fees (Base, ATF, UDF, PSF, GST) & Bounds [1.2k, 45k]
     alt Outlier or Malformed Quote
         Cleaner->>DB: INSERT INTO fare_quarantine (quarantined_reason)
         Cleaner->>Supa: Batch Insert Quarantine
     else Valid Live Microdata
         Cleaner->>DB: INSERT INTO fare_observations (SHA-256 hashed)
-        Cleaner->>Supa: Batch Insert Observations (42,945+ Vault)
+        Cleaner->>Supa: Batch Insert Observations (46,900+ Vault)
     end
     Batch->>Engine: Trigger Index Recalculation
     Engine->>DB: Read Latest Microdata & DGCA Passenger Weights

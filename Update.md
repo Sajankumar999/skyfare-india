@@ -7,15 +7,53 @@
 >    - Remove it from the active backlog below (or move it to the Completed Archive).
 >    - **Immediately audit and record the completed work in [`README.md`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/README.md)** under *Recent Major Upgrades & Bug Fixes*.
 
-* **Last Updated**: `2026-10-16` (4-Tier Cloud Production Deployment: Vercel + Render + Supabase + GitHub Actions Live)
+* **Last Updated**: `2026-10-17` (4x Daily Automated Ingestion, 3-Hour Delay Absorption, Strict SerpApi Quota Preservation, Route Locking & Instant UI Cache)
 * **Official Transition Target**: `2026-11-08` ($T+45$ Days)
 * **Current Status**: `100% FULLY AUTOMATED & DEPLOYED IN PRODUCTION`
 * **Production URL**: `https://skyfare-india.vercel.app/`
-* **Current Live Index**: `166.48` (Superlative Fisher Ideal Index across 42,945 quotes)
+* **Current Live Index**: `165.65` (Superlative Fisher Ideal Index across 46,902 quotes)
 
 ---
 
-## 🏆 Priority 0: Production Cloud Deployment & 4-Tier Automation (`2026-10-16`)
+## 🏆 Priority 0: 4x Daily Schedule, Quota Preservation & Instant UI Cache (`2026-10-17`)
+
+- [x] **1. 4x Daily Ingestion Rescheduling with 3-Hour Runner Queue Delay Absorption**:
+  - Rescheduled [`.github/workflows/scheduled_ingestion.yml`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/.github/workflows/scheduled_ingestion.yml) from 3x to **4x daily** across non-congested minutes (`:20`, `:40`) to bypass GitHub Actions runner queue spikes:
+    - **Shift 1 (Morning Early Bird)**: `20 0 * * *` (00:20 UTC = 05:50 AM IST)
+    - **Shift 2 (Midday Market)**: `40 5 * * *` (05:40 UTC = 11:10 AM IST)
+    - **Shift 3 (Evening Surge)**: `20 11 * * *` (11:20 UTC = 04:50 PM IST)
+    - **Shift 4 (Night Final & EOD)**: `40 16 * * *` (16:40 UTC = 10:10 PM IST)
+  - Mathematical delay absorption: Shifts spaced 5.5 to 7.5 hours apart, ensuring that even under severe 3-hour GitHub queue delays, consecutive runs never collide, and a minimum of 3 (typically all 4) distinct scans complete every single calendar day.
+
+- [x] **2. Strict SerpApi Quota Preservation & Anti-Block Insurance Architecture**:
+  - Implemented `is_serpapi_eligible(shift_name, horizon)` in [`batch_fetch_real_data.py`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/batch_fetch_real_data.py) to eliminate API credit burnout:
+    - **Shift 1 (Morning)**: SerpApi queries **only $T+1$ and $T+7$** (28 calls) to track spot/peak opening volatility.
+    - **Shifts 2 & 3 (Midday & Evening)**: SerpApi is **OFF (0 calls)**; Scrapling handles all 5 horizons for all 14 corridors at **$0 API cost**.
+    - **Shift 4 (Night)**: SerpApi queries **all 5 horizons** ($T+1..T+45$, 70 calls) to provide full dual-engine consensus and anchor the official EOD Fisher Ideal National Airfare Index.
+  - Capped daily SerpApi usage to $28 + 0 + 0 + 70 = \mathbf{98 \text{ queries/day}}$ ($\mathbf{210 \text{ calls/month per key}}$ across 14 teammate keys), comfortably within developer free tiers.
+  - Serves as anti-block insurance: if OTAs ever adjust anti-scraping countermeasures, SerpApi guarantees every horizon is refreshed daily.
+
+- [x] **3. Airport Dropdown Corridor Restriction & Live Hang Elimination**:
+  - Restricted Origin & Destination dropdowns in `Header.tsx` and `CorridorDeepDive.tsx` strictly to the 14 official DGCA monitored trunk corridors.
+  - Eliminated invalid selections (e.g. Kolkata-Kolkata, Goa-Goa, or unmonitored pairs like Kolkata-Bangalore).
+  - Implemented auto-selection of valid destination pairs upon changing origin, completely eliminating perpetual "Connecting to live feed..." loading hangs.
+
+- [x] **4. Instant Client-Side Cache Layer, Cold-Start Banner & Dynamic Badges**:
+  - Added instant `sessionStorage` caching across views so navigating between tabs (e.g., Home to Booking Horizon) renders instantaneously (<50ms) instead of reverting to demo placeholders during API fetches.
+  - Added a dynamic cold-start banner notifying users when the Render backend container is waking up.
+  - Added dynamic live status badges that only display "Live Connected" with a green pulse when the backend successfully returns fresh data, displaying "Offline / Cached" otherwise.
+
+- [x] **5. Hardened Admin Authentication & Edge Security Headers**:
+  - Removed hardcoded credentials, client-side demo autofill, and client validation bypasses from `AdminLoginModal.tsx`.
+  - Configured Vercel edge security headers in `vercel.json` (`X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Permissions-Policy`).
+
+- [x] **6. Automated Verification & Test Suite Expansion**:
+  - Added `tests/test_batch_shifts.py` validating 4-shift detection windows, delay boundaries, and SerpApi horizon eligibility.
+  - Expanded test suite to **57 unit tests (all passing in 9.3s)**; production Vite build verified in 16.08s.
+
+---
+
+## 🏆 Priority 1: Production Cloud Deployment & 4-Tier Automation (`2026-10-16`)
 
 - [x] **1. React 19 Frontend Deployment to Vercel (`https://skyfare-india.vercel.app/`)**:
   - Implemented [`vercel.json`](file:///c:/Compition/skyfare-india-—-national-airfare-intelligence%20(7)/vercel.json) configuring framework preset (`vite`), SPA routing rewrite (`/(.*) -> /index.html`), and long-term immutable caching (`public, max-age=31536000`) for all `/assets/*` chunks.
