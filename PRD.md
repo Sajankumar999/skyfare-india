@@ -5,9 +5,10 @@
 * **Competition / Initiative**: Smart India Hackathon (SIH) 2024 / 2025 / 2026
 * **Governing Authorities**: Ministry of Statistics and Programme Implementation (MoSPI) / National Statistical Office (NSO) & Directorate General of Civil Aviation (DGCA)
 * **Secondary Beneficiary**: Reserve Bank of India (RBI) Monetary Policy Committee (MPC)
-* **Document Version**: `2.0.0 (Production Live)`
-* **Official Ingestion Epoch**: `2026-09-24` (42,945+ Live Microdata Quotes Recorded)
-* **Live Superlative Index**: `166.48` (Fisher Ideal, Base 2024-Q1=100)
+* **Document Version**: `2.1.0 (Production Live)`
+* **Last Updated**: `2026-10-17`
+* **Official Ingestion Epoch**: `2026-09-24` (46,900+ Live Microdata Quotes Recorded)
+* **Live Superlative Index**: `165.65` (Fisher Ideal, Base 2024-Q1=100)
 * **Production Frontend**: [skyfare-india.vercel.app](https://skyfare-india.vercel.app/)
 * **Production Backend API**: [skyfare-india-api.onrender.com](https://skyfare-india-api.onrender.com)
 * **Target Transition Date**: `2026-11-08` ($T+45$ Days)
@@ -59,7 +60,9 @@ Under the traditional CPI collection framework:
 ## 4. 🧭 System Scope
 
 ### 4.1 In-Scope
-* Continuous automated twice-daily data ingestion across 14 DGCA Category-I trunk corridors.
+* Continuous automated 4x daily data ingestion across 14 DGCA Category-I trunk corridors (`05:50 AM`, `11:10 AM`, `04:50 PM`, `10:10 PM` IST).
+* 3-hour runner queue delay absorption buffer guaranteeing $\ge 3$ complete scans every 24 hours.
+* Tiered Multi-Engine Architecture: Scrapling stealth engine covering all 5 horizons on every shift at $0 cost; SerpApi quota gatekeeper (Morning $T+1, T+7$; Midday & Evening OFF; Night All 5) capping usage to 98 calls/day across 14 teammate keys.
 * Dedicated 14-key API management registry with individual teammate ownership attribution.
 * Multi-horizon tracking across 5 distinct advance booking windows: $T+1$, $T+7$, $T+15$, $T+30$, and $T+45$.
 * 5-Formula Econometric Calculation Engine: Jevons Elementary, Laspeyres, Paasche, Superlative Fisher Ideal, and Chained Törnqvist.
@@ -67,8 +70,10 @@ Under the traditional CPI collection framework:
 * Data cleaning with Tukey IQR filtering [₹1,200 – ₹45,000] and immutable quarantine storage.
 * Cryptographic data integrity verification using SHA-256 Merkle root hashing.
 * Interactive responsive web dashboard (Desktop, Tablet, Mobile) with dark/light themes.
-* Restricted MoSPI Officer Admin Console with session authentication.
-* Grounded AI Econometric Policy Chatbot with 22+ knowledge presets.
+* Instant client-side `sessionStorage` caching layer (<50ms tab switching) and dynamic cold-start alert banners.
+* Origin-destination pair constraint dynamically locked to the 14 official monitored DGCA trunk routes.
+* Restricted MoSPI Officer Admin Console with session authentication (zero hardcoded secrets or client bypasses).
+* Grounded AI Econometric Policy Chatbot with live SQLite RAG and Gemini 2.5 Flash synthesis.
 
 ### 4.2 Out-of-Scope (Future Phases)
 * International flight routes (focus is strictly sovereign Indian domestic civil aviation).

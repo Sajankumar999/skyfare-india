@@ -3,8 +3,8 @@
 
 * **Design System**: Sovereign India Intelligence (SII) Design Framework
 * **Theme Support**: Adaptive Dark & Light Modes with System Preference Synchronization
-* **Version**: `2.0.0 (Production Live)`
-* **Last Updated**: `2026-10-16`
+* **Version**: `2.1.0 (Production Live)`
+* **Last Updated**: `2026-10-17`
 
 ---
 
@@ -76,7 +76,7 @@ A 4px horizontal tri-strip rendered across the top edge of every page:
   - Background: `bg-violet-50 dark:bg-violet-950/40`
   - Text: `text-violet-700 dark:text-violet-300`
   - Solid: `#8B5CF6` (`bg-violet-500`)
-  - *Usage*: Fisher Ideal Superlative Index ($166.48$), UN CPI standard ribbons.
+  - *Usage*: Fisher Ideal Superlative Index ($165.65$), UN CPI standard ribbons.
 
 ---
 
@@ -158,4 +158,15 @@ The layout dynamically adapts across standard Tailwind CSS breakpoints:
   - `🟠 Watchlist (5 - 15%)`: Amber (`#f59e0b`)
   - `🔴 Surge Breach (> 15%)`: Rose (`#ef4444`)
   - Active Selected Corridor: Vivid sovereign blue (`#0284c7`) with `#38bdf8` pulse halo, brought to topmost z-index layer.
+
+### 5.4 Connectivity Indicators & Instant Tab Cache UI
+* **Cold-Start Notification Banner**:
+  - Rendered when the cloud compute backend is waking from inactivity.
+  - Styling: `bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 rounded-xl` with spinning radar pulse indicator.
+* **Dynamic Connection Status Badge (Top App Bar)**:
+  - *Live Connected*: Green beacon (`bg-emerald-500 animate-ping` and solid `bg-emerald-500`), indicating verified live REST communication with the FastAPI backend.
+  - *Cached / Offline*: Slate badge (`bg-slate-500`), indicating data is served from local `sessionStorage` or calibrated reference baselines.
+* **Airport Dropdown Route Constraint UI**:
+  - Origin dropdown dynamically filters destination choices to strictly valid DGCA corridors.
+  - Prevents illegal routes (e.g. CCU-CCU) and eliminates perpetual "Connecting to live feed..." loading hangs.
 
