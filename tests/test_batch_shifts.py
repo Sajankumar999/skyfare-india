@@ -1,6 +1,6 @@
 import unittest
 from datetime import datetime, timezone
-from batch_fetch_real_data import detect_current_shift, ALL_HORIZONS
+from batch_fetch_real_data import detect_current_shift, is_serpapi_eligible, ALL_HORIZONS
 
 class TestBatchShiftDetection(unittest.TestCase):
     def test_shift_detection_windows(self):
@@ -32,6 +32,24 @@ class TestBatchShiftDetection(unittest.TestCase):
 
     def test_all_horizons_constant(self):
         self.assertEqual(ALL_HORIZONS, ("T+1", "T+7", "T+15", "T+30", "T+45"))
+
+    def test_serpapi_tiered_eligibility(self):
+        # Morning shift: ONLY T+1 and T+7 are queried by SerpApi
+        self.assertTrue(is_serpapi_eligible("morning", "T+1"))
+        self.assertTrue(is_serpapi_eligible("morning", "T+7"))
+        self.assertFalse(is_serpapi_eligible("morning", "T+15"))
+        self.assertFalse(is_serpapi_eligible("morning", "T+30"))
+        self.assertFalse(is_serpapi_eligible("morning", "T+45"))
+
+        # Midday & Evening shifts: 0 calls (Quota saver, Scrapling handles all 5)
+        for h in ALL_HORIZONS:
+            self.assertFalse(is_serpapi_eligible("midday", h))
+            self.assertFalse(is_serpapi_eligible("evening", h))
+
+        # Night & All shifts: ALL 5 horizons queried
+        for h in ALL_HORIZONS:
+            self.assertTrue(is_serpapi_eligible("night", h))
+            self.assertTrue(is_serpapi_eligible("all", h))
 
 if __name__ == "__main__":
     unittest.main()

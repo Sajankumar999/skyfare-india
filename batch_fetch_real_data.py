@@ -166,6 +166,22 @@ def detect_current_shift(dt: datetime | None = None) -> str:
         return "night"
 
 
+def is_serpapi_eligible(shift_name: str, horizon: str) -> bool:
+    """Returns True if SerpApi should query for the given shift and horizon.
+
+    Tiered Quota Architecture:
+      - 'morning': Spot & Peak surveillance (T+1, T+7 only) -> 28 calls/day
+      - 'midday' / 'evening': False (0 calls) -> 100% Scrapling stealth mode
+      - 'night' / 'all' / 'custom': True (All 5 horizons) -> 70 calls/day + EOD Index
+    Total SerpApi calls = 28 + 0 + 0 + 70 = 98 calls/day (210 calls/month per teammate key).
+    """
+    if shift_name in ("night", "all", "custom"):
+        return True
+    elif shift_name == "morning":
+        return horizon in ("T+1", "T+7")
+    return False
+
+
 def _run_batch_impl(
     horizons: tuple[str, ...] | None = None,
     shift_name: str = "custom",
@@ -182,13 +198,13 @@ def _run_batch_impl(
     if not horizons:
         horizons = ALL_HORIZONS
 
-    # Tiered Horizon Strategy:
-    # - Scrapling runs across ALL 5 horizons on every shift (zero API cost, maximum empirical breadth).
-    # - SerpApi runs spot/peak (T+1, T+7) on daytime shifts to conserve quota, and all 5 horizons on the night shift (or if shift == 'all' or 'custom').
-    is_eod_shift = shift_name in ("night", "all", "custom")
-    serpapi_active_horizons = (
-        horizons if is_eod_shift else tuple(h for h in horizons if h in ("T+1", "T+7"))
-    )
+    serpapi_active_horizons = tuple(h for h in horizons if is_serpapi_eligible(shift_name, h))
+    if shift_name in ("night", "all", "custom"):
+        serpapi_mode_label = "Official EOD Full Basket (T+1..T+45)"
+    elif shift_name == "morning":
+        serpapi_mode_label = "Morning Spot & Peak Surveillance (T+1, T+7)"
+    else:
+        serpapi_mode_label = "OFF (Daytime Quota Saver - 100% Scrapling Mode)"
 
     print("=" * 80)
     print(f"SkyFare India - 14 DGCA Corridor Dedicated Ingestion Run [{shift_name.upper()} SHIFT]")
@@ -196,8 +212,8 @@ def _run_batch_impl(
     print("=" * 80)
     print(f"Corridors Monitored: {len(ROUTES)} | Horizon Target Pool: {', '.join(horizons)}")
     if engine in ("dual", "serpapi"):
-        mode_label = "Official EOD Full Basket (T+1..T+45)" if is_eod_shift else "Spot & Peak Surveillance (T+1, T+7)"
-        print(f"  * SerpApi Active Horizons:  {', '.join(serpapi_active_horizons)} ({len(serpapi_active_horizons)} horizons - {mode_label})")
+        count_desc = f"{len(serpapi_active_horizons)} horizons" if serpapi_active_horizons else "0 horizons (Sleeping)"
+        print(f"  * SerpApi Active Horizons:  {', '.join(serpapi_active_horizons) if serpapi_active_horizons else 'None'} ({count_desc} - {serpapi_mode_label})")
     if engine in ("dual", "scrapling"):
         print(f"  * Scrapling Active Horizons: {', '.join(horizons)} ({len(horizons)} horizons - Stealth Multi-OTA)")
     print(f"Total Planned Pipeline Iterations: {len(ROUTES) * len(horizons)}")
@@ -243,8 +259,9 @@ def _run_batch_impl(
             os.environ["SKYFARE_LIVE_DESTINATION"] = destination
             os.environ["SKYFARE_LIVE_OUTBOUND_DATE"] = outbound_date
 
-            serpapi_eligible = is_eod_shift or horizon in ("T+1", "T+7")
-            serp_status = "RUN" if (engine in ("dual", "serpapi") and serpapi_eligible) else ("SKIP (Quota Saver)" if engine in ("dual", "serpapi") else "OFF")
+            serpapi_eligible = is_serpapi_eligible(shift_name, horizon)
+
+            serp_status = "RUN" if (engine in ("dual", "serpapi") and serpapi_eligible) else ("OFF (Quota Saver)" if engine in ("dual", "serpapi") else "OFF")
             scrap_status = "RUN" if engine in ("dual", "scrapling") else "OFF"
 
             print(
@@ -254,7 +271,7 @@ def _run_batch_impl(
             )
             route_summary = summary.setdefault(route, {"accepted": 0, "quarantined": 0})
 
-            # 1. SerpApi Collection (T+1 & T+7 on daytime shifts; All horizons on shift 4 / night)
+            # 1. SerpApi Collection (T+1 & T+7 on Morning; OFF on Midday/Evening; All horizons on Night)
             if engine in ("dual", "serpapi"):
                 if serpapi_eligible:
                     try:
@@ -265,7 +282,8 @@ def _run_batch_impl(
                     route_summary["accepted"] += result.get("accepted", 0)
                     route_summary["quarantined"] += result.get("quarantined", 0)
                 else:
-                    print(f"  [SERPAPI QUOTA SAVER] Skipping {horizon} on {shift_name.upper()} shift (all horizons captured on NIGHT shift).")
+                    reason = "all horizons captured on NIGHT shift" if is_morning_shift else "quota preserved for NIGHT shift (100% Scrapling active)"
+                    print(f"  [SERPAPI QUOTA SAVER] Skipping {horizon} on {shift_name.upper()} shift ({reason}).")
 
             # 2. Scrapling Stealth Collection (ALL horizons on EVERY shift)
             if engine in ("dual", "scrapling"):
