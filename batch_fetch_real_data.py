@@ -10,7 +10,7 @@ import json
 import os
 import sys
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 # Ensure UTF-8 output on Windows consoles
@@ -144,6 +144,28 @@ def outbound_date_for_horizon(horizon: str) -> str:
     return (date.today() + timedelta(days=days)).isoformat()
 
 
+def detect_current_shift(dt: datetime | None = None) -> str:
+    """Automatically detects the operational shift from current UTC time.
+
+    4 Daily Scheduled Runs (spaced ~5.5 to 6 hours apart):
+      - Shift 1: Morning Early Bird (00:20 UTC = 05:50 AM IST)  -> 00:00 - 05:00 UTC
+      - Shift 2: Midday Market       (05:40 UTC = 11:10 AM IST) -> 05:00 - 10:00 UTC
+      - Shift 3: Evening Surge       (11:20 UTC = 04:50 PM IST) -> 10:00 - 15:30 UTC
+      - Shift 4: Night EOD & Index   (16:40 UTC = 10:10 PM IST) -> 15:30 - 24:00 UTC
+    """
+    if dt is None:
+        dt = datetime.now(timezone.utc)
+    hour = dt.hour + (dt.minute / 60.0)
+    if hour < 5.0:
+        return "morning"
+    elif hour < 10.0:
+        return "midday"
+    elif hour < 15.5:
+        return "evening"
+    else:
+        return "night"
+
+
 def _run_batch_impl(
     horizons: tuple[str, ...] | None = None,
     shift_name: str = "custom",
@@ -160,12 +182,25 @@ def _run_batch_impl(
     if not horizons:
         horizons = ALL_HORIZONS
 
+    # Tiered Horizon Strategy:
+    # - Scrapling runs across ALL 5 horizons on every shift (zero API cost, maximum empirical breadth).
+    # - SerpApi runs spot/peak (T+1, T+7) on daytime shifts to conserve quota, and all 5 horizons on the night shift (or if shift == 'all' or 'custom').
+    is_eod_shift = shift_name in ("night", "all", "custom")
+    serpapi_active_horizons = (
+        horizons if is_eod_shift else tuple(h for h in horizons if h in ("T+1", "T+7"))
+    )
+
     print("=" * 80)
     print(f"SkyFare India - 14 DGCA Corridor Dedicated Ingestion Run [{shift_name.upper()} SHIFT]")
     print(f"Ingestion Engine: {engine.upper()} (SerpApi + Scrapling Dual Mode: {'ACTIVE' if engine == 'dual' else 'OFF'})")
     print("=" * 80)
-    print(f"Corridors Monitored: {len(ROUTES)} | Target Horizons: {', '.join(horizons)}")
-    print(f"Total Planned Searches: {len(ROUTES) * len(horizons)} (across {engine} engine)")
+    print(f"Corridors Monitored: {len(ROUTES)} | Horizon Target Pool: {', '.join(horizons)}")
+    if engine in ("dual", "serpapi"):
+        mode_label = "Official EOD Full Basket (T+1..T+45)" if is_eod_shift else "Spot & Peak Surveillance (T+1, T+7)"
+        print(f"  * SerpApi Active Horizons:  {', '.join(serpapi_active_horizons)} ({len(serpapi_active_horizons)} horizons - {mode_label})")
+    if engine in ("dual", "scrapling"):
+        print(f"  * Scrapling Active Horizons: {', '.join(horizons)} ({len(horizons)} horizons - Stealth Multi-OTA)")
+    print(f"Total Planned Pipeline Iterations: {len(ROUTES) * len(horizons)}")
     if engine in ("dual", "serpapi") and keys:
         print("\nCorridor Key Assignments & Teammate Ownership:")
         for idx, r in enumerate(ROUTES, 1):
@@ -208,23 +243,31 @@ def _run_batch_impl(
             os.environ["SKYFARE_LIVE_DESTINATION"] = destination
             os.environ["SKYFARE_LIVE_OUTBOUND_DATE"] = outbound_date
 
+            serpapi_eligible = is_eod_shift or horizon in ("T+1", "T+7")
+            serp_status = "RUN" if (engine in ("dual", "serpapi") and serpapi_eligible) else ("SKIP (Quota Saver)" if engine in ("dual", "serpapi") else "OFF")
+            scrap_status = "RUN" if engine in ("dual", "scrapling") else "OFF"
+
             print(
                 f"[{request_counter}/{total_requests}] "
-                f"Ingesting {route} @ {horizon} ({outbound_date}) [{engine.upper()}]..."
+                f"Ingesting {route} @ {horizon} ({outbound_date}) "
+                f"[SerpApi: {serp_status} | Scrapling: {scrap_status}]..."
             )
             route_summary = summary.setdefault(route, {"accepted": 0, "quarantined": 0})
 
-            # 1. SerpApi Collection
+            # 1. SerpApi Collection (T+1 & T+7 on daytime shifts; All horizons on shift 4 / night)
             if engine in ("dual", "serpapi"):
-                try:
-                    result = fetch_real_flight()
-                except Exception as error:
-                    print(f"  [SERPAPI ERROR]: {error}")
-                    result = {"accepted": 0, "quarantined": 0}
-                route_summary["accepted"] += result.get("accepted", 0)
-                route_summary["quarantined"] += result.get("quarantined", 0)
+                if serpapi_eligible:
+                    try:
+                        result = fetch_real_flight()
+                    except Exception as error:
+                        print(f"  [SERPAPI ERROR]: {error}")
+                        result = {"accepted": 0, "quarantined": 0}
+                    route_summary["accepted"] += result.get("accepted", 0)
+                    route_summary["quarantined"] += result.get("quarantined", 0)
+                else:
+                    print(f"  [SERPAPI QUOTA SAVER] Skipping {horizon} on {shift_name.upper()} shift (all horizons captured on NIGHT shift).")
 
-            # 2. Scrapling Stealth Collection
+            # 2. Scrapling Stealth Collection (ALL horizons on EVERY shift)
             if engine in ("dual", "scrapling"):
                 try:
                     s_result = fetch_with_scrapling(route, horizon, outbound_date, sources=sources)
@@ -283,9 +326,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="SkyFare India - Dedicated 14-Corridor Ingestion Engine")
     parser.add_argument(
         "--shift",
-        choices=["morning", "afternoon", "night", "all"],
-        default="night",
-        help="Execution shift: 'morning' (all horizons T+1 to T+45), 'afternoon' (all horizons), 'night' (all horizons), or 'all' (all horizons)",
+        choices=["morning", "midday", "afternoon", "evening", "night", "all", "auto"],
+        default="auto",
+        help="Execution shift: 'auto' (detect by UTC clock), 'morning', 'midday'/'afternoon', 'evening', 'night' (full basket + EOD index), or 'all'",
     )
     parser.add_argument(
         "--horizon",
@@ -312,10 +355,18 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
+    # Resolve operational shift
+    if args.shift == "auto":
+        shift = detect_current_shift()
+        print(f"  [AUTO SHIFT] Clock-derived operational shift: '{shift.upper()}'")
+    elif args.shift == "afternoon":
+        shift = "midday"
+    else:
+        shift = args.shift
+
     selected_horizons: tuple[str, ...]
     if args.all_horizons:
         selected_horizons = ALL_HORIZONS
-        shift = args.shift
     elif args.horizon:
         raw_horizons = tuple(h.strip().upper() for h in args.horizon.split(",") if h.strip())
         for h in raw_horizons:
@@ -323,13 +374,11 @@ if __name__ == "__main__":
                 raise ValueError(f"Invalid horizon '{h}'. Allowed horizons are: {ALL_HORIZONS}")
         selected_horizons = raw_horizons
         shift = "custom"
-    elif args.shift in ("morning", "afternoon", "night", "all"):
-        # 3x daily schedule (morning, afternoon, night) captures full 5-horizon basket
-        selected_horizons = ALL_HORIZONS
-        shift = args.shift
     else:
+        # Default: All 5 horizons are iterated over.
+        # Scrapling scrapes all 5 on every shift.
+        # SerpApi dynamically filters T+1, T+7 on shifts 1-3, and all 5 on night shift.
         selected_horizons = ALL_HORIZONS
-        shift = "all"
 
     selected_sources = (
         tuple(s.strip().lower() for s in args.sources.split(",") if s.strip())

@@ -1,14 +1,18 @@
-name: SkyFare India - 3x Daily Automated Flight Ingestion & Index Pipeline
+name: SkyFare India - 4x Daily Automated Flight Ingestion & Index Pipeline
 
 on:
   schedule:
-    # 3x Daily Multi-Horizon Ingestion across all 14 DGCA Corridors (T+1, T+7, T+15, T+30, T+45):
-    # 05:15 UTC = 10:45 AM IST (Morning Shift - avoids :00 top-of-hour queue throttling)
-    - cron: '15 5 * * *'
-    # 10:15 UTC = 03:45 PM IST (Afternoon Shift)
-    - cron: '15 10 * * *'
-    # 17:15 UTC = 10:45 PM IST (Night Shift & EOD Fisher Ideal National Index Calculation)
-    - cron: '15 17 * * *'
+    # 4x Daily Multi-Horizon Ingestion across all 14 DGCA Corridors (T+1, T+7, T+15, T+30, T+45):
+    # Scheduled with non-standard minutes (:20, :40) to evade GitHub Actions runner queue congestion.
+    # Spaced ~5.5 to 6 hours apart, absorbing up to 3 hours of runner delay while guaranteeing >=3 daily scans.
+    # Shift 1: Morning Early Bird  (00:20 UTC = 05:50 AM IST) -> Scrapling: All 5, SerpApi: T+1, T+7
+    - cron: '20 0 * * *'
+    # Shift 2: Midday Market       (05:40 UTC = 11:10 AM IST) -> Scrapling: All 5, SerpApi: T+1, T+7
+    - cron: '40 5 * * *'
+    # Shift 3: Evening Surge       (11:20 UTC = 04:50 PM IST) -> Scrapling: All 5, SerpApi: T+1, T+7
+    - cron: '20 11 * * *'
+    # Shift 4: Night Final & EOD   (16:40 UTC = 10:10 PM IST) -> Scrapling: All 5, SerpApi: All 5 + Fisher EOD Index
+    - cron: '40 16 * * *'
   workflow_dispatch: # Allows manual trigger from GitHub UI anytime
 
 concurrency:
@@ -17,7 +21,7 @@ concurrency:
 
 jobs:
   ingest:
-    name: 3x Daily Automated Airfare Harvesting & Surveillance
+    name: 4x Daily Automated Airfare Harvesting & Surveillance
     runs-on: ubuntu-latest
     timeout-minutes: 25
 
@@ -37,7 +41,7 @@ jobs:
           pip install -r requirements.txt
           pip install scrapling curl_cffi psycopg2-binary supabase
 
-      - name: Execute SkyFare Ingestion Engine (All Horizons T+1 to T+45)
+      - name: Execute SkyFare Ingestion Engine (Tiered Horizons by Shift)
         env:
           # Cloud Database (Supabase PostgreSQL) or local fallback
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -49,4 +53,4 @@ jobs:
           SCRAPLING_ENGINE_ENABLED: "true"
           SKYFARE_BATCH_DELAY_SECONDS: "1.5"
         run: |
-          python batch_fetch_real_data.py --shift all --engine dual
+          python batch_fetch_real_data.py --shift auto --engine dual
